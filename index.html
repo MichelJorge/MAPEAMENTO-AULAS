@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mapa de Sala de Aula - Supabase</title>
-
   <!-- SDK do Supabase via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     :root {
       --bg-color: #f4f6f8;
@@ -21,8 +19,9 @@
       --occupied-text: #1e40af;
       --empty-bg: #f9fafb;
       --empty-border: #d1d5db;
+      --error-bg: #fee2e2;
+      --error-text: #b91c1c;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
     
@@ -39,28 +38,28 @@
     select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: white; }
     .turno-btn { background: #e5e7eb; color: var(--text-color); }
     .turno-btn.active { background: var(--primary); color: white; }
-
     #syncStatus { font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
     .status-ok { background-color: #d1fae5; color: #065f46; }
     .status-syncing { background-color: #fef3c7; color: #92400e; }
-
+    .status-error { background-color: var(--error-bg); color: var(--error-text); }
     .quadro { background: #374151; color: white; text-align: center; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; letter-spacing: 1px; }
-
     .grid-container { display: grid; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 10px; }
-    .desk { background: var(--empty-bg); border: 2px dashed var(--empty-border); border-radius: 8px; min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; text-align: center; font-size: 0.85rem; cursor: pointer; position: relative; }
+    .desk { background: var(--empty-bg); border: 2px dashed var(--empty-border); border-radius: 8px; min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; text-align: center; font-size: 0.85rem; cursor: pointer; position: relative; transition: all 0.2s; }
+    .desk:hover { border-color: var(--primary); background: #eff6ff; }
     .desk.occupied { background: var(--occupied-bg); border: 2px solid var(--occupied-border); color: var(--occupied-text); font-weight: 600; }
     .desk .pos { position: absolute; top: 4px; left: 6px; font-size: 0.7rem; color: #9ca3af; }
-
     .overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
     .overlay.active { display: flex; }
     .modal { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
     
     .student-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
-    .toast { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: white; padding: 10px 16px; border-radius: 6px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: white; padding: 10px 16px; border-radius: 6px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000; }
+    .toast.error { background: #ef4444; }
+    input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%; }
+    .empty-message { color: #6b7280; text-align: center; padding: 20px; }
   </style>
 </head>
 <body>
-
   <header>
     <div class="controls-group">
       <span><strong>Turno:</strong></span>
@@ -72,19 +71,16 @@
         <!-- Criado dinamicamente no JS -->
       </select>
     </div>
-
     <div class="controls-group">
-      <span id="syncStatus" class="status-ok">Conectado ao Supabase</span>
+      <span id="syncStatus" class="status-syncing">Iniciando...</span>
       <button id="btnAlunos">Lista de Alunos</button>
       <button id="btnConfig" class="btn-secondary">Ajustar Grade</button>
       <button id="btnLimpar" class="btn-danger">Esvaziar Sala</button>
     </div>
   </header>
-
   <div class="quadro">LOUSA / QUADRO</div>
-
   <div id="gridContainer" class="grid-container"></div>
-
+  
   <!-- Modal Selecionar Aluno p/ Carteira -->
   <div id="overlayAssign" class="overlay">
     <div class="modal">
@@ -96,14 +92,14 @@
       <button id="btnUnassign" class="btn-danger" style="display:none;">Desocupar</button>
     </div>
   </div>
-
+  
   <!-- Modal Cadastro Alunos -->
   <div id="overlayStudents" class="overlay">
     <div class="modal">
       <h3>Gerenciar Alunos da Turma</h3>
       <br>
       <div style="display: flex; gap: 8px;">
-        <input type="text" id="newStudentInput" placeholder="Nome do Aluno..." style="flex:1; padding:8px; border-radius:4px; border:1px solid #ccc;">
+        <input type="text" id="newStudentInput" placeholder="Nome do Aluno...">
         <button id="btnAddStudent">Adicionar</button>
       </div>
       <br>
@@ -112,68 +108,97 @@
       <button class="btn-secondary" data-close="overlayStudents">Fechar</button>
     </div>
   </div>
-
+  
   <!-- Modal Configuração da Grade -->
   <div id="overlayConfig" class="overlay">
     <div class="modal">
       <h3>Configurar Grade de Carteiras</h3>
       <br>
       <label>Fileiras (Linhas):</label>
-      <input type="number" id="rowsInput" min="1" max="10" style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 12px;">
+      <input type="number" id="rowsInput" min="1" max="10">
       
       <label>Colunas:</label>
-      <input type="number" id="colsInput" min="1" max="10" style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 12px;">
+      <input type="number" id="colsInput" min="1" max="10">
       
-      <p id="configTotal" style="font-weight: bold;"></p>
+      <p id="configTotal" style="font-weight: bold; margin-top: 8px;"></p>
       <p id="configWarn" style="color: red; display: none; font-size: 0.85rem; margin-top: 5px;"></p>
       <br>
       <button id="btnSaveConfig">Salvar Configuração</button>
       <button class="btn-secondary" data-close="overlayConfig">Cancelar</button>
     </div>
   </div>
-
+  
   <div id="toast" class="toast">Ação concluída com sucesso!</div>
 
   <script>
     // ==========================================
-    // 1. CONFIGURAÇÃO DO SUPABASE
+    // ⚙️ CONFIGURAÇÃO DO SUPABASE - VERIFIQUE!
     // ==========================================
+    // IMPORTANTE: Confirme se esses valores estão corretos no seu projeto Supabase
     const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
+    
+    // Inicializar cliente
+    let supabase;
+    try {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log("✅ Supabase inicializado");
+    } catch (e) {
+      console.error("❌ Erro ao inicializar Supabase:", e);
+      updateStatus(false, "Falha na conexão");
+    }
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const ROW_ID = "mapa_global";
 
-    // Estrutura Padrão de Dados
+    // ==========================================
+    // 📦 ESTRUTURA DE DADOS
+    // ==========================================
     function createInitialState() {
-      var state = { current: { turno: "Manhã", sala: 1 }, turnos: { "Manhã": {}, "Tarde": {} } };
-      ["Manhã", "Tarde"].forEach(function(t) {
-        for (var i = 1; i <= 10; i++) {
-          state.turnos[t][i] = { rows: 5, cols: 6, roster: [], desks: {} };
+      const state = { 
+        current: { turno: "Manhã", sala: 1 }, 
+        turnos: { "Manhã": {}, "Tarde": {} } 
+      };
+      
+      ["Manhã", "Tarde"].forEach(tipoTurno => {
+        for (let numeroSala = 1; numeroSala <= 10; numeroSala++) {
+          state.turnos[tipoTurno][numeroSala] = {
+            rows: 5,
+            cols: 6,
+            roster: [],
+            desks: {}
+          };
         }
       });
       return state;
     }
 
-    var state = createInitialState();
-    var selectedDeskKey = null;
+    let state = createInitialState();
+    let selectedDeskKey = null;
+    let useFallbackMode = false; // Usar armazenamento local se Supabase falhar
 
-    function updateStatus(syncing) {
-      var el = document.getElementById("syncStatus");
-      if (syncing) {
+    // ==========================================
+    // 🎯 FUNÇÕES DE STATUS E AVISOS
+    // ==========================================
+    function updateStatus(sincronizando, mensagem = null) {
+      const el = document.getElementById("syncStatus");
+      if (mensagem) {
+        el.textContent = mensagem;
+        el.className = mensagem.includes("Falha") || mensagem.includes("Erro") ? "status-error" : "status-syncing";
+      } else if (sincronizando) {
         el.textContent = "Sincronizando...";
         el.className = "status-syncing";
       } else {
-        el.textContent = "Sincronizado na Nuvem";
-        el.className = "status-ok";
+        el.textContent = useFallbackMode ? "⚠️ Modo Offline" : "✅ Sincronizado";
+        el.className = useFallbackMode ? "status-syncing" : "status-ok";
       }
     }
 
-    function showToast(msg) {
-      var t = document.getElementById("toast");
-      t.textContent = msg;
-      t.style.display = "block";
-      setTimeout(function() { t.style.display = "none"; }, 2500);
+    function showToast(mensagem, isErro = false) {
+      const toast = document.getElementById("toast");
+      toast.textContent = mensagem;
+      toast.className = isErro ? "toast error" : "toast";
+      toast.style.display = "block";
+      setTimeout(() => { toast.style.display = "none"; }, 3000);
     }
 
     function currentSala() {
@@ -181,103 +206,172 @@
     }
 
     // ==========================================
-    // 2. SINCRONIZAÇÃO COM SUPABASE
+    // 💾 SINCRONIZAÇÃO COM SUPABASE
     // ==========================================
     async function saveState() {
+      // Salvar também no localStorage como garantia
+      localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
+      
+      if (useFallbackMode || !supabase) return;
+      
       updateStatus(true);
       try {
-        await supabase
+        const { error } = await supabase
           .from("mapa_salas")
           .upsert({ id: ROW_ID, data: state, updated_at: new Date() });
+
+        if (error) {
+          console.warn("⚠️ Erro ao salvar no Supabase:", error);
+          if (error.code === "42P01") {
+            // Tabela não existe - ativar modo local
+            ativarModoLocal();
+          }
+        }
       } catch (err) {
-        console.error("Erro ao salvar no Supabase:", err);
+        console.warn("⚠️ Falha de rede ao salvar:", err);
       } finally {
         updateStatus(false);
       }
     }
 
+    function ativarModoLocal() {
+      if (!useFallbackMode) {
+        useFallbackMode = true;
+        showToast("⚠️ Usando modo local. Crie a tabela no Supabase!", true);
+      }
+    }
+
     async function loadState() {
-      updateStatus(true);
+      // Primeiro tentar carregar do backup local
+      const backupLocal = localStorage.getItem("mapa_salas_backup");
+      if (backupLocal) {
+        try {
+          state = JSON.parse(backupLocal);
+        } catch (e) {
+          state = createInitialState();
+        }
+      }
+
+      if (!supabase) {
+        ativarModoLocal();
+        renderAll();
+        return;
+      }
+
+      updateStatus(true, "Carregando...");
       try {
-        let { data, error } = await supabase
+        const { data, error } = await supabase
           .from("mapa_salas")
           .select("data")
           .eq("id", ROW_ID)
           .single();
 
-        if (data && data.data) {
+        if (error) {
+          if (error.code === "PGRST116") {
+            // Nenhum registro - criar inicial
+            console.log("📝 Criando registro inicial...");
+            await saveState();
+          } else if (error.code === "42P01") {
+            // Tabela não existe
+            ativarModoLocal();
+          } else {
+            console.warn("Erro ao carregar:", error);
+          }
+        } else if (data?.data) {
           state = data.data;
-        } else {
-          await saveState(); // Cria a primeira gravação na nuvem caso não exista
+          localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
         }
       } catch (err) {
-        console.error("Erro ao carregar dados do Supabase:", err);
+        console.warn("⚠️ Rede indisponível, usando dados locais:", err);
+        ativarModoLocal();
       } finally {
         updateStatus(false);
         renderAll();
       }
     }
 
-    // Escutar alterações em tempo real de outros dispositivos
-    supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: 'id=eq.' + ROW_ID }, payload => {
-        if (payload.new && payload.new.data) {
-          state = payload.new.data;
-          renderAll();
-        }
-      })
-      .subscribe();
+    // 🔄 Escutar alterações em tempo real
+    function inscreverMudancas() {
+      if (useFallbackMode || !supabase) return;
+      
+      try {
+        supabase
+          .channel('mapa_mudancas')
+          .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'mapa_salas', 
+            filter: `id=eq.${ROW_ID}` 
+          }, payload => {
+            if (payload.new?.data) {
+              state = payload.new.data;
+              localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
+              renderAll();
+              showToast("🔄 Atualizado da nuvem");
+            }
+          })
+          .subscribe();
+      } catch (e) {
+        console.log("📡 Reescuta adiada:", e);
+      }
+    }
 
     // ==========================================
-    // 3. RENDERIZAÇÃO DA INTERFACE
+    // 🎨 RENDERIZAÇÃO DA INTERFACE
     // ==========================================
     function renderSelectSala() {
-      var sel = document.getElementById("selectSala");
+      const sel = document.getElementById("selectSala");
       sel.innerHTML = "";
-      for (var i = 1; i <= 10; i++) {
-        var opt = document.createElement("option");
+      for (let i = 1; i <= 10; i++) {
+        const opt = document.createElement("option");
         opt.value = i;
-        opt.textContent = "Sala " + i;
-        if (i == state.current.sala) opt.selected = true;
+        opt.textContent = `Sala ${i}`;
+        if (i === state.current.sala) opt.selected = true;
         sel.appendChild(opt);
       }
     }
 
     function renderGrid() {
-      var container = document.getElementById("gridContainer");
-      var sala = currentSala();
+      const container = document.getElementById("gridContainer");
+      const sala = currentSala();
       
-      container.style.gridTemplateColumns = "repeat(" + sala.cols + ", minmax(100px, 1fr))";
+      if (!sala) {
+        container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>";
+        return;
+      }
+
+      container.style.gridTemplateColumns = `repeat(${sala.cols}, minmax(100px, 1fr))`;
       container.innerHTML = "";
 
-      for (var r = 0; r < sala.rows; r++) {
-        for (var c = 0; c < sala.cols; c++) {
-          (function(row, col) {
-            var key = row + "-" + col;
-            var studentName = sala.desks[key];
-            
-            var desk = document.createElement("div");
-            desk.className = "desk" + (studentName ? " occupied" : "");
-            
-            var posSpan = document.createElement("span");
-            posSpan.className = "pos";
-            posSpan.textContent = (row + 1) + "x" + (col + 1);
-            desk.appendChild(posSpan);
-
-            var nameSpan = document.createElement("span");
-            nameSpan.textContent = studentName || "Livre";
-            desk.appendChild(nameSpan);
-
-            desk.addEventListener("click", function() { openAssignModal(key); });
-            container.appendChild(desk);
-          })(r, c);
+      for (let r = 0; r < sala.rows; r++) {
+        for (let c = 0; c < sala.cols; c++) {
+          criarCarteira(container, r, c, sala);
         }
       }
     }
 
+    function criarCarteira(container, row, col, sala) {
+      const key = `${row}-${col}`;
+      const studentName = sala.desks?.[key];
+
+      const desk = document.createElement("div");
+      desk.className = `desk${studentName ? " occupied" : ""}`;
+
+      const posSpan = document.createElement("span");
+      posSpan.className = "pos";
+      posSpan.textContent = `${row + 1}×${col + 1}`;
+      desk.appendChild(posSpan);
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = studentName || "Livre";
+      desk.appendChild(nameSpan);
+
+      desk.addEventListener("click", () => openAssignModal(key));
+      container.appendChild(desk);
+    }
+
     function renderAll() {
-      document.querySelectorAll(".turno-btn").forEach(function(btn) {
+      document.querySelectorAll(".turno-btn").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.turno === state.current.turno);
       });
       renderSelectSala();
@@ -285,193 +379,205 @@
     }
 
     // ==========================================
-    // 4. MODAIS E AÇÕES
+    // 🪟 MODAIS E AÇÕES
     // ==========================================
     function openOverlay(id) { document.getElementById(id).classList.add("active"); }
     function closeOverlay(id) { document.getElementById(id).classList.remove("active"); }
 
     function openAssignModal(key) {
       selectedDeskKey = key;
-      var sala = currentSala();
-      var currentStudent = sala.desks[key];
-      
-      document.getElementById("assignTitle").textContent = "Carteira " + key + (currentStudent ? " (Atual: " + currentStudent + ")" : "");
-      
-      var list = document.getElementById("assignList");
+      const sala = currentSala();
+      const currentStudent = sala.desks?.[key];
+
+      document.getElementById("assignTitle").textContent = 
+        `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
+
+      const list = document.getElementById("assignList");
       list.innerHTML = "";
 
-      // Filtra os alunos que já estão alocados em outras carteiras
-      var assignedStudents = Object.values(sala.desks);
-      var available = sala.roster.filter(function(st) {
-        return st === currentStudent || !assignedStudents.includes(st);
-      });
+      const assignedStudents = Object.values(sala.desks || {});
+      const available = (sala.roster || []).filter(st => 
+        st === currentStudent || !assignedStudents.includes(st)
+      );
 
       if (available.length === 0) {
-        list.innerHTML = "<p style='color:#6b7280;'>Nenhum aluno disponível na lista de cadastro.</p>";
+        list.innerHTML = "<p class='empty-message'>Nenhum aluno disponível.</p>";
       } else {
-        available.forEach(function(st) {
-          var btn = document.createElement("button");
+        available.forEach(st => {
+          const btn = document.createElement("button");
           btn.textContent = st;
           btn.style.cssText = "display:block; width:100%; margin-bottom:6px; text-align:left; background:#f3f4f6; color:#1f2937;";
-          btn.addEventListener("click", function() {
+          btn.addEventListener("click", () => {
+            sala.desks = sala.desks || {};
             sala.desks[key] = st;
             saveState();
             renderGrid();
             closeOverlay("overlayAssign");
+            showToast(`✅ ${st} alocado`);
           });
           list.appendChild(btn);
         });
       }
 
-      var btnUnassign = document.getElementById("btnUnassign");
-      btnUnassign.style.display = currentStudent ? "inline-block" : "none";
+      document.getElementById("btnUnassign").style.display = 
+        currentStudent ? "inline-block" : "none";
       openOverlay("overlayAssign");
     }
 
-    document.getElementById("btnUnassign").addEventListener("click", function() {
-      if (selectedDeskKey && currentSala().desks[selectedDeskKey]) {
-        delete currentSala().desks[selectedDeskKey];
-        saveState();
-        renderGrid();
-        closeOverlay("overlayAssign");
+    // Desocupar carteira
+    document.getElementById("btnUnassign").addEventListener("click", () => {
+      if (selectedDeskKey) {
+        const sala = currentSala();
+        if (sala.desks?.[selectedDeskKey]) {
+          delete sala.desks[selectedDeskKey];
+          saveState();
+          renderGrid();
+          closeOverlay("overlayAssign");
+          showToast("Carteira desocupada");
+        }
       }
     });
 
     // Lista de Alunos
-    function openStudentsModal() {
-      renderStudentsList();
-      openOverlay("overlayStudents");
-    }
-
     function renderStudentsList() {
-      var list = document.getElementById("studentsList");
-      var sala = currentSala();
+      const list = document.getElementById("studentsList");
+      const sala = currentSala();
       list.innerHTML = "";
 
-      if(sala.roster.length === 0) {
-        list.innerHTML = "<p style='color:#6b7280;'>Nenhum aluno cadastrado para esta turma.</p>";
+      if (!sala.roster?.length) {
+        list.innerHTML = "<p class='empty-message'>Nenhum aluno cadastrado.</p>";
         return;
       }
 
-      sala.roster.forEach(function(st, idx) {
-        var item = document.createElement("div");
+      sala.roster.forEach((st, idx) => {
+        const item = document.createElement("div");
         item.className = "student-item";
-        item.innerHTML = "<span>" + st + "</span>";
-        
-        var delBtn = document.createElement("button");
+        item.innerHTML = `<span>${st}</span>`;
+
+        const delBtn = document.createElement("button");
         delBtn.className = "btn-danger";
         delBtn.style.padding = "4px 8px";
         delBtn.textContent = "Remover";
-        delBtn.addEventListener("click", function() {
+        delBtn.addEventListener("click", () => {
           sala.roster.splice(idx, 1);
-          // Desocupa se estiver em alguma carteira
-          Object.keys(sala.desks).forEach(function(k) {
-            if (sala.desks[k] === st) delete sala.desks[k];
-          });
+          // Desocupa se estiver alocado
+          if (sala.desks) {
+            Object.keys(sala.desks).forEach(k => {
+              if (sala.desks[k] === st) delete sala.desks[k];
+            });
+          }
           saveState();
           renderStudentsList();
           renderGrid();
+          showToast(`❌ ${st} removido`);
         });
-
         item.appendChild(delBtn);
         list.appendChild(item);
       });
     }
 
-    document.getElementById("btnAddStudent").addEventListener("click", function() {
-      var inp = document.getElementById("newStudentInput");
-      var val = inp.value.trim();
-      if (val) {
-        var sala = currentSala();
-        if(!sala.roster.includes(val)) {
-          sala.roster.push(val);
-          inp.value = "";
-          saveState();
-          renderStudentsList();
-        } else {
-          alert("Este aluno já está cadastrado.");
-        }
+    document.getElementById("btnAddStudent").addEventListener("click", () => {
+      const inp = document.getElementById("newStudentInput");
+      const nome = inp.value.trim();
+      if (!nome) return;
+
+      const sala = currentSala();
+      sala.roster = sala.roster || [];
+
+      if (!sala.roster.includes(nome)) {
+        sala.roster.push(nome);
+        inp.value = "";
+        saveState();
+        renderStudentsList();
+        renderGrid();
+        showToast(`✅ ${nome} adicionado`);
+      } else {
+        showToast("⚠️ Aluno já cadastrado!", true);
       }
     });
 
-    // Configuração da Grade
-    function openConfigModal() {
-      var sala = currentSala();
-      document.getElementById("rowsInput").value = sala.rows;
-      document.getElementById("colsInput").value = sala.cols;
-      updateConfigPreview();
-      openOverlay("overlayConfig");
-    }
-
+    // Configuração de Grade
     function clampInt(val, min, max) {
-      var n = parseInt(val, 10);
-      if (isNaN(n)) return min;
-      return Math.max(min, Math.min(max, n));
+      const n = parseInt(val, 10);
+      return isNaN(n) ? min : Math.max(min, Math.min(max, n));
     }
 
     function updateConfigPreview() {
-      var rows = clampInt(document.getElementById("rowsInput").value, 1, 10);
-      var cols = clampInt(document.getElementById("colsInput").value, 1, 10);
-      document.getElementById("configTotal").textContent = "Total: " + (rows * cols) + " carteiras";
+      const rows = clampInt(document.getElementById("rowsInput").value, 1, 10);
+      const cols = clampInt(document.getElementById("colsInput").value, 1, 10);
+      document.getElementById("configTotal").textContent = 
+        `Total: ${rows * cols} carteiras`;
     }
 
-    document.getElementById("rowsInput").addEventListener("input", updateConfigPreview);
-    document.getElementById("colsInput").addEventListener("input", updateConfigPreview);
-
-    document.getElementById("btnSaveConfig").addEventListener("click", function() {
-      var sala = currentSala();
-      var newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
-      var newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
+    document.getElementById("btnSaveConfig").addEventListener("click", () => {
+      const sala = currentSala();
+      const newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
+      const newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
 
       sala.rows = newRows;
       sala.cols = newCols;
 
-      // Remove alunos de carteiras excedentes
-      Object.keys(sala.desks).forEach(function(k) {
-        var p = k.split("-");
-        if (parseInt(p[0], 10) >= newRows || parseInt(p[1], 10) >= newCols) {
-          delete sala.desks[k];
-        }
-      });
+      // Remover carteiras excedentes
+      if (sala.desks) {
+        Object.keys(sala.desks).forEach(k => {
+          const [r, c] = k.split("-").map(Number);
+          if (r >= newRows || c >= newCols) delete sala.desks[k];
+        });
+      }
 
       saveState();
       renderGrid();
       closeOverlay("overlayConfig");
-      showToast("Configurações atualizadas");
+      showToast("✅ Grade atualizada");
     });
 
     // Eventos Gerais
-    document.getElementById("selectSala").addEventListener("change", function(e) {
+    document.getElementById("selectSala").addEventListener("change", e => {
       state.current.sala = parseInt(e.target.value, 10);
       saveState();
       renderGrid();
     });
 
-    document.querySelectorAll(".turno-btn").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        state.current.turno = this.dataset.turno;
+    document.querySelectorAll(".turno-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.current.turno = btn.dataset.turno;
         saveState();
         renderAll();
       });
     });
 
-    document.getElementById("btnAlunos").addEventListener("click", openStudentsModal);
-    document.getElementById("btnConfig").addEventListener("click", openConfigModal);
-    document.getElementById("btnLimpar").addEventListener("click", function() {
-      if (confirm("Deseja realmente esvaziar todas as carteiras desta sala?")) {
+    document.getElementById("btnAlunos").addEventListener("click", () => {
+      renderStudentsList();
+      openOverlay("overlayStudents");
+    });
+
+    document.getElementById("btnConfig").addEventListener("click", () => {
+      const sala = currentSala();
+      document.getElementById("rowsInput").value = sala.rows;
+      document.getElementById("colsInput").value = sala.cols;
+      updateConfigPreview();
+      openOverlay("overlayConfig");
+    });
+
+    document.getElementById("btnLimpar").addEventListener("click", () => {
+      if (confirm("Esvaziar todas as carteiras desta sala?")) {
         currentSala().desks = {};
         saveState();
         renderGrid();
-        showToast("Carteiras desocupadas");
+        showToast("✅ Carteiras liberadas");
       }
     });
 
-    document.querySelectorAll("[data-close]").forEach(function(btn) {
-      btn.addEventListener("click", function() { closeOverlay(this.dataset.close); });
+    document.querySelectorAll("[data-close]").forEach(btn => {
+      btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
     });
 
-    // Iniciar aplicação
-    loadState();
+    // ==========================================
+    // 🚀 INICIAR APLICAÇÃO
+    // ==========================================
+    loadState().then(() => {
+      inscreverMudancas();
+    });
   </script>
 </body>
 </html>
