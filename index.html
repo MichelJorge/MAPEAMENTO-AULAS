@@ -219,12 +219,12 @@
 
   .desks-grid{
     display:grid;
-    grid-template-columns:repeat(var(--cols,5), minmax(78px,1fr));
+    grid-template-columns:repeat(var(--cols,7), minmax(78px,1fr));
     gap:10px;
     width:100%;
   }
   @media (max-width:640px){
-    .desks-grid{ grid-template-columns:repeat(var(--cols,5), minmax(72px,1fr)); }
+    .desks-grid{ grid-template-columns:repeat(var(--cols,7), minmax(72px,1fr)); }
   }
 
   .desk{
@@ -599,14 +599,14 @@
     <div class="config-row">
       <div class="config-field">
         <label class="field-label" for="rowsInput">Fileiras</label>
-        <input type="number" class="num-input" id="rowsInput" min="1" max="10" value="4">
+        <input type="number" class="num-input" id="rowsInput" min="1" max="10" value="6">
       </div>
       <div class="config-field">
-        <label class="field-label" for="colsInput">Colunas</label>
-        <input type="number" class="num-input" id="colsInput" min="1" max="10" value="5">
+        <label class="field-label" for="colsInput">Colunas (Mesas)</label>
+        <input type="number" class="num-input" id="colsInput" min="1" max="10" value="7">
       </div>
     </div>
-    <div class="config-total" id="configTotal">Total: 20 carteiras</div>
+    <div class="config-total" id="configTotal">Total: 42 carteiras</div>
     <div class="config-warn" id="configWarn"></div>
     <button class="btn-full" id="btnSaveConfig">Salvar configuração</button>
   </div>
@@ -631,7 +631,13 @@
   };
 
   function defaultSala(){
-    return { rows:4, cols:5, roster:[], desks:{} };
+    return { rows:6, cols:7, roster:[], desks:{} };
+  }
+
+  function clampInt(val, min, max){
+    var n = parseInt(val, 10);
+    if(isNaN(n)) return min;
+    return Math.max(min, Math.min(max, n));
   }
 
   function loadState(){
@@ -642,7 +648,7 @@
         if(parsed && parsed.data) state.data = parsed.data;
         if(parsed && parsed.current) state.current = parsed.current;
       }
-    }catch(e){ /* localStorage indisponível ou dado corrompido: segue com estado vazio */ }
+    }catch(e){ /* localStorage indisponível */ }
 
     TURNOS.forEach(function(turno){
       if(!state.data[turno]) state.data[turno] = {};
@@ -689,6 +695,13 @@
     t.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  function openOverlay(id){
+    document.getElementById(id).classList.add("open");
+  }
+  function closeOverlay(id){
+    document.getElementById(id).classList.remove("open");
   }
 
   /* ---------- Render: topbar / tabs ---------- */
@@ -966,17 +979,10 @@
     var warn = document.getElementById("configWarn");
     if(displaced.length>0){
       warn.style.display = "block";
-      warn.textContent = displaced.length===1
-        ? ("1 aluno ficará sem carteira: " + displaced[0])
-        : (displaced.length + " alunos ficarão sem carteira: " + displaced.join(", "));
+      warn.textContent = "Atenção: alterar para este tamanho removerá " + displaced.length + " aluno(s) posicionados fora da nova área (" + displaced.join(", ") + ").";
     }else{
       warn.style.display = "none";
     }
-  }
-  function clampInt(v,min,max){
-    v = parseInt(v,10);
-    if(isNaN(v)) v = min;
-    return Math.max(min, Math.min(max, v));
   }
 
   document.getElementById("rowsInput").addEventListener("input", updateConfigPreview);
@@ -984,57 +990,28 @@
 
   document.getElementById("btnSaveConfig").addEventListener("click", function(){
     var sala = currentSala();
-    var rows = clampInt(document.getElementById("rowsInput").value,1,10);
-    var cols = clampInt(document.getElementById("colsInput").value,1,10);
-    var newDesks = {};
+    var newRows = clampInt(document.getElementById("rowsInput").value,1,10);
+    var newCols = clampInt(document.getElementById("colsInput").value,1,10);
+
+    sala.rows = newRows;
+    sala.cols = newCols;
+
     Object.keys(sala.desks).forEach(function(k){
       var p = k.split("-");
       var r = parseInt(p[0],10), c = parseInt(p[1],10);
-      if(r<rows && c<cols) newDesks[k] = sala.desks[k];
+      if(r>=newRows || c>=newCols) delete sala.desks[k];
     });
-    sala.rows = rows; sala.cols = cols; sala.desks = newDesks;
+
     saveState();
     renderGrid();
     closeOverlay("overlayConfig");
-    showToast("Sala configurada: " + rows + " fileiras × " + cols + " colunas");
+    showToast("Layout da sala atualizado");
   });
 
-  /* ---------- Limpar sala ---------- */
-  document.getElementById("btnLimpar").addEventListener("click", function(){
-    var sala = currentSala();
-    if(Object.keys(sala.desks).length === 0){
-      showToast("Esta sala já está vazia");
-      return;
-    }
-    sala.desks = {};
-    saveState();
-    renderGrid();
-    showToast("Todas as carteiras foram desocupadas");
-  });
-
-  /* ---------- Overlays genéricos ---------- */
-  function openOverlay(id){ document.getElementById(id).classList.add("open"); }
-  function closeOverlay(id){ document.getElementById(id).classList.remove("open"); }
-
-  document.querySelectorAll("[data-close]").forEach(function(btn){
-    btn.addEventListener("click", function(){ closeOverlay(this.dataset.close); });
-  });
-  document.querySelectorAll(".overlay").forEach(function(ov){
-    ov.addEventListener("click", function(e){
-      if(e.target === ov) closeOverlay(ov.id);
-    });
-  });
-  document.addEventListener("keydown", function(e){
-    if(e.key === "Escape"){
-      document.querySelectorAll(".overlay.open").forEach(function(ov){ closeOverlay(ov.id); });
-    }
-  });
-
-  /* ---------- Botões principais ---------- */
+  /* ---------- Eventos Gerais ---------- */
   document.querySelectorAll(".turno-btn").forEach(function(btn){
     btn.addEventListener("click", function(){
       state.current.turno = this.dataset.turno;
-      if(state.current.sala > NUM_SALAS) state.current.sala = 1;
       saveState();
       renderAll();
     });
@@ -1043,7 +1020,33 @@
   document.getElementById("btnAlunos").addEventListener("click", openStudentsModal);
   document.getElementById("btnConfig").addEventListener("click", openConfigModal);
 
-  /* ---------- Início ---------- */
+  document.getElementById("btnLimpar").addEventListener("click", function(){
+    var sala = currentSala();
+    if(Object.keys(sala.desks).length===0){
+      showToast("A sala já está vazia");
+      return;
+    }
+    if(confirm("Tem certeza que deseja remover todos os alunos das carteiras desta sala?")){
+      sala.desks = {};
+      saveState();
+      renderGrid();
+      showToast("Todas as carteiras foram desocupadas");
+    }
+  });
+
+  document.querySelectorAll("[data-close]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      closeOverlay(this.dataset.close);
+    });
+  });
+
+  document.querySelectorAll(".overlay").forEach(function(ov){
+    ov.addEventListener("click", function(e){
+      if(e.target === this) closeOverlay(this.id);
+    });
+  });
+
+  /* ---------- Inicialização ---------- */
   loadState();
   renderAll();
 
