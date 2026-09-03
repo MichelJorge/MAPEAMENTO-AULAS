@@ -184,24 +184,54 @@
     }
 
     async function saveState() {
+      // Sempre mantém uma cópia local, mesmo quando o Supabase estiver indisponível.
       localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
-      if (useFallbackMode || !supabaseClient) return;
-      
+      if (useFallbackMode || !supabaseClient) return false;
+
       updateStatus(true);
       try {
-        const { error } = await supabaseClient.from("mapa_salas").upsert({ id: ROW_ID, data: state, updated_at: new Date() });
-        if (error && error.code === "42P01") ativarModoLocal();
+        const { error } = await supabaseClient
+          .from("mapa_salas")
+          .upsert(
+            {
+              id: ROW_ID,
+              data: state,
+              updated_at: new Date().toISOString()
+            },
+            { onConflict: "id" }
+          );
+
+        if (error) {
+          console.error("Erro retornado pelo Supabase ao salvar:", error);
+
+          if (error.code === "42P01") {
+            ativarModoLocal("A tabela mapa_salas não existe no Supabase.");
+          } else if (error.code === "42501" || error.status === 401 || error.status === 403) {
+            showToast("❌ Supabase bloqueou a gravação. Verifique as políticas RLS.", true);
+            updateStatus(false, "Falha de permissão");
+          } else {
+            showToast(`❌ Não foi possível salvar: ${error.message}`, true);
+            updateStatus(false, "Falha ao salvar");
+          }
+          return false;
+        }
+
+        showToast("✅ Salvo no Supabase");
+        return true;
       } catch (err) {
-        console.warn("⚠️ Falha de rede:", err);
+        console.error("Falha de rede ao salvar no Supabase:", err);
+        showToast("❌ Falha de conexão com o Supabase.", true);
+        updateStatus(false, "Falha de conexão");
+        return false;
       } finally {
-        updateStatus(false);
+        if (!useFallbackMode) updateStatus(false);
       }
     }
 
-    function ativarModoLocal() {
+    function ativarModoLocal(mensagem = "Usando modo local. Verifique a configuração do Supabase.") {
       if (!useFallbackMode) {
         useFallbackMode = true;
-        showToast("⚠️ Usando modo local. Crie a tabela no Supabase!", true);
+        showToast(`⚠️ ${mensagem}`, true);
       }
     }
 
@@ -220,14 +250,26 @@
       try {
         const { data, error } = await supabaseClient.from("mapa_salas").select("data").eq("id", ROW_ID).single();
         if (error) {
-          if (error.code === "PGRST116") { await saveState(); }
-          else if (error.code === "42P01") { ativarModoLocal(); }
+          console.error("Erro retornado pelo Supabase ao carregar:", error);
+
+          if (error.code === "PGRST116") {
+            // A tabela existe, mas ainda não há registro. Cria o registro inicial.
+            await saveState();
+          } else if (error.code === "42P01") {
+            ativarModoLocal("A tabela mapa_salas não existe no Supabase.");
+          } else if (error.code === "42501" || error.status === 401 || error.status === 403) {
+            ativarModoLocal("Leitura bloqueada pelas políticas RLS do Supabase.");
+          } else {
+            showToast(`❌ Não foi possível carregar: ${error.message}`, true);
+            updateStatus(false, "Falha ao carregar");
+          }
         } else if (data?.data) {
           state = data.data;
           localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
         }
       } catch (err) {
-        ativarModoLocal();
+        console.error("Falha ao carregar do Supabase:", err);
+        ativarModoLocal("Falha de conexão com o Supabase. Usando os dados locais.");
       } finally {
         updateStatus(false);
         renderAll();
