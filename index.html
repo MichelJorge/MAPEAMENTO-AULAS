@@ -2,639 +2,1052 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Contagem Regressiva para as Férias!</title>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Mapa da Sala · Disposição de Carteiras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --blue: #2563EB;
-    --sky: #38BDF8;
-    --yellow: #FBBF24;
-    --orange: #F97316;
-    --green: #22C55E;
-    --red: #EF4444;
-    --purple: #A855F7;
-    --pink: #EC4899;
-    --dark: #1E1B4B;
-    --cream: #FFFBEB;
+  :root{
+    --paper:#FBFAF5;
+    --paper-line:#DDE7E2;
+    --ink:#26333A;
+    --ink-soft:#5C6B72;
+    --board:#2F4A40;
+    --board-dark:#233A32;
+    --chalk:#F3F0E4;
+    --primary:#33587F;
+    --primary-dark:#264461;
+    --primary-light:#6E9CC2;
+    --primary-wash:#E7EEF4;
+    --wood:#C98A3F;
+    --danger:#B0524A;
+    --danger-wash:#F6E8E6;
+    --empty-border:#B7C4CC;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --shadow-card:0 1px 2px rgba(38,51,58,.06), 0 6px 16px rgba(38,51,58,.08);
+    --shadow-pop:0 12px 32px rgba(20,30,35,.22);
+    font-size:16px;
   }
 
-  body {
-    font-family: 'Nunito', sans-serif;
-    background: linear-gradient(135deg, #1E1B4B 0%, #312E81 40%, #1E3A8A 70%, #0C4A6E 100%);
-    min-height: 100vh;
-    overflow-x: hidden;
-    position: relative;
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink);
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 33px,
+        var(--paper-line) 33px, var(--paper-line) 34px
+      ),
+      var(--paper);
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
   }
 
-  /* ---- FUNDO ANIMADO: ESTRELAS ---- */
-  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .star {
-    position: absolute;
-    border-radius: 50%;
-    background: white;
-    animation: twinkle var(--d, 3s) ease-in-out infinite alternate;
-    opacity: 0;
-  }
-  @keyframes twinkle { from { opacity: 0; transform: scale(0.6); } to { opacity: var(--op, 0.8); transform: scale(1.2); } }
-
-  /* ---- ITENS FLUTUANTES ESCOLARES ---- */
-  .float-items { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .float-item {
-    position: absolute;
-    font-size: clamp(18px, 4vw, 28px);
-    animation: floatUp var(--fd, 8s) linear infinite;
-    opacity: 0;
-  }
-  @keyframes floatUp {
-    0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
-    10%  { opacity: 0.7; }
-    90%  { opacity: 0.5; }
-    100% { transform: translateY(-10vh) rotate(var(--r, 360deg)); opacity: 0; }
+  h1,h2,h3,.display{
+    font-family:'Fredoka',system-ui,sans-serif;
   }
 
-  /* ---- CONTEÚDO PRINCIPAL ---- */
-  .container {
-    position: relative;
-    z-index: 1;
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 20px 16px 40px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  button{font-family:inherit;cursor:pointer;}
+  input,textarea{font-family:inherit;}
+
+  .app{
+    max-width:1000px;
+    margin:0 auto;
+    padding:18px 16px 90px;
+    position:relative;
   }
 
-  /* ---- CABEÇALHO ---- */
-  .header {
-    text-align: center;
-    margin-bottom: 24px;
-    animation: slideDown 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+  .app::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:56px;
+    width:1px;
+    background:rgba(176,82,74,.18);
+    z-index:0;
   }
-  @keyframes slideDown { from { opacity:0; transform: translateY(-50px) scale(0.7); } to { opacity:1; transform: translateY(0) scale(1); } }
+  @media (max-width:640px){ .app::before{ display:none; } }
 
-  .emoji-row {
-    font-size: clamp(28px, 8vw, 40px);
-    letter-spacing: 6px;
-    margin-bottom: 8px;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
-    animation: bounce 2s ease-in-out infinite;
-  }
-  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-
-  .title {
-    font-family: 'Fredoka One', cursive;
-    font-size: clamp(28px, 7vw, 42px);
-    color: #FBBF24;
-    text-shadow: 3px 3px 0 #92400E, 0 0 30px rgba(251,191,36,0.6);
-    line-height: 1.1;
-    letter-spacing: 1px;
-  }
-  .subtitle {
-    font-size: clamp(13px, 3.5vw, 16px);
-    color: #BAE6FD;
-    margin-top: 6px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    background:#fff;
+    border:1px solid rgba(38,51,58,.06);
+    border-radius:var(--radius-lg);
+    padding:14px 18px;
+    box-shadow:var(--shadow-card);
+    position:relative;
+    z-index:1;
+    flex-wrap:wrap;
   }
 
-  /* ---- LOUSA / CARD PRINCIPAL ---- */
-  .chalkboard {
-    background: #1a3a1a;
-    border: 6px solid #6B4C2A;
-    border-radius: 20px;
-    width: 100%;
-    padding: 20px 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.3);
-    position: relative;
-    margin-bottom: 20px;
-    animation: popIn 0.9s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand svg{flex:none;color:var(--wood);}
+  .brand h1{
+    font-size:1.28rem;
+    font-weight:600;
+    margin:0;
+    color:var(--primary-dark);
+    letter-spacing:.2px;
   }
-  @keyframes popIn { from { opacity:0; transform: scale(0.5) rotate(-5deg); } to { opacity:1; transform: scale(1) rotate(0deg); } }
-
-  .chalkboard::before {
-    content: '';
-    position: absolute;
-    inset: 8px;
-    border: 2px dashed rgba(255,255,255,0.07);
-    border-radius: 12px;
-    pointer-events: none;
+  .brand span.sub{
+    display:block;
+    font-size:.72rem;
+    color:var(--ink-soft);
+    font-family:'Inter',sans-serif;
+    font-weight:500;
+    margin-top:1px;
   }
 
-  .chalkboard-label {
-    text-align: center;
-    font-family: 'Fredoka One', cursive;
-    font-size: clamp(13px, 3.5vw, 16px);
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 16px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
+  .turno-switch{
+    display:flex;
+    background:var(--primary-wash);
+    border-radius:999px;
+    padding:4px;
+    gap:4px;
+  }
+  .turno-btn{
+    border:none;
+    background:transparent;
+    color:var(--primary-dark);
+    font-weight:600;
+    font-size:.86rem;
+    padding:9px 18px;
+    border-radius:999px;
+    transition:background .18s ease, color .18s ease;
+    min-height:40px;
+  }
+  .turno-btn.active{
+    background:var(--primary);
+    color:#fff;
+    box-shadow:0 3px 8px rgba(38,68,97,.28);
   }
 
-  /* ---- GRID CONTADOR ---- */
-  .counter-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
+  /* ---------- Salas tabs ---------- */
+  .salas-tabs{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:16px 2px 4px;
+    scroll-snap-type:x proximity;
+    position:relative;
+    z-index:1;
+  }
+  .salas-tabs::-webkit-scrollbar{height:5px;}
+  .salas-tabs::-webkit-scrollbar-thumb{background:var(--empty-border);border-radius:10px;}
+
+  .sala-chip{
+    flex:none;
+    scroll-snap-align:start;
+    border:1.5px solid rgba(51,88,127,.18);
+    background:#fff;
+    color:var(--primary-dark);
+    font-weight:600;
+    font-size:.86rem;
+    padding:9px 16px;
+    border-radius:12px;
+    min-height:42px;
+    white-space:nowrap;
+    transition:transform .12s ease, background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .sala-chip.active{
+    background:var(--primary-dark);
+    border-color:var(--primary-dark);
+    color:#fff;
+    transform:translateY(-1px);
+  }
+  .sala-chip:active{transform:scale(.96);}
+
+  /* ---------- Stage ---------- */
+  .stage{
+    background:#fff;
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-card);
+    border:1px solid rgba(38,51,58,.06);
+    padding:18px;
+    margin-top:14px;
+    position:relative;
+    z-index:1;
   }
 
-  .time-card {
-    background: rgba(255,255,255,0.06);
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 16px;
-    padding: 16px 10px 12px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.2s;
+  .board{
+    background:linear-gradient(180deg,var(--board) 0%, var(--board-dark) 100%);
+    border-radius:var(--radius-md);
+    padding:16px 14px;
+    text-align:center;
+    position:relative;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 6px 14px rgba(35,58,50,.25);
+    margin-bottom:20px;
   }
-  .time-card:active { transform: scale(0.96); }
-
-  .time-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    border-radius: 16px 16px 0 0;
+  .board::before{
+    content:"";
+    position:absolute;
+    left:50%; bottom:-7px;
+    transform:translateX(-50%);
+    width:70%; height:7px;
+    background:#8a6a3f;
+    border-radius:0 0 4px 4px;
   }
-  .time-card.dias::before   { background: linear-gradient(90deg, #FBBF24, #F97316); }
-  .time-card.horas::before  { background: linear-gradient(90deg, #38BDF8, #6366F1); }
-  .time-card.minutos::before{ background: linear-gradient(90deg, #22C55E, #10B981); }
-  .time-card.segundos::before{ background: linear-gradient(90deg, #EC4899, #EF4444); }
-
-  .time-number {
-    font-family: 'Fredoka One', cursive;
-    font-size: clamp(42px, 12vw, 64px);
-    line-height: 1;
-    margin-bottom: 6px;
-    display: block;
-    transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+  .board-label{
+    color:var(--chalk);
+    font-family:'Fredoka',sans-serif;
+    font-weight:500;
+    font-size:.98rem;
+    letter-spacing:.4px;
+    opacity:.92;
   }
-  .time-card.dias   .time-number { color: #FBBF24; text-shadow: 0 0 20px rgba(251,191,36,0.5); }
-  .time-card.horas  .time-number { color: #38BDF8; text-shadow: 0 0 20px rgba(56,189,248,0.5); }
-  .time-card.minutos .time-number { color: #4ADE80; text-shadow: 0 0 20px rgba(74,222,128,0.5); }
-  .time-card.segundos .time-number { color: #F472B6; text-shadow: 0 0 20px rgba(244,114,182,0.5); }
-
-  .time-number.flip {
-    animation: flipNum 0.3s cubic-bezier(0.34,1.56,0.64,1);
-  }
-  @keyframes flipNum {
-    0%   { transform: rotateX(-90deg) scale(0.7); opacity: 0; }
-    60%  { transform: rotateX(10deg) scale(1.15); opacity: 1; }
-    100% { transform: rotateX(0deg) scale(1); }
+  .board-sub{
+    display:block;
+    color:var(--chalk);
+    opacity:.55;
+    font-size:.72rem;
+    font-family:'Inter',sans-serif;
+    margin-top:3px;
   }
 
-  .time-label {
-    font-size: clamp(10px, 2.5vw, 13px);
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: rgba(255,255,255,0.55);
+  .grid-scroll{
+    overflow-x:auto;
+    padding-bottom:4px;
   }
 
-  .time-icon { font-size: 18px; margin-bottom: 4px; display: block; }
-
-  /* ---- BARRA DE PROGRESSO ---- */
-  .progress-section { margin-bottom: 16px; }
-  .progress-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.6);
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+  .desks-grid{
+    display:grid;
+    grid-template-columns:repeat(var(--cols,5), minmax(78px,1fr));
+    gap:10px;
+    width:100%;
   }
-  .progress-track {
-    height: 14px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 99px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.15);
-  }
-  .progress-fill {
-    height: 100%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, #FBBF24, #F97316, #EF4444);
-    transition: width 1s ease;
-    position: relative;
-    overflow: hidden;
-  }
-  .progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%; right: -100%; bottom: 0;
-    background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%);
-    animation: shimmer 2s linear infinite;
-  }
-  @keyframes shimmer { 0%{transform:translateX(-40%)} 100%{transform:translateX(60%)} }
-  .progress-percent {
-    text-align: center;
-    font-family: 'Fredoka One', cursive;
-    font-size: 13px;
-    color: #FBBF24;
-    margin-top: 6px;
+  @media (max-width:640px){
+    .desks-grid{ grid-template-columns:repeat(var(--cols,5), minmax(72px,1fr)); }
   }
 
-  /* ---- DATA ALVO ---- */
-  .target-date {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 10px 14px;
-    text-align: center;
-    font-size: 13px;
-    color: rgba(255,255,255,0.7);
-    font-weight: 700;
+  .desk{
+    position:relative;
+    aspect-ratio:1/0.92;
+    border-radius:var(--radius-sm);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:6px 4px;
+    border:2px dashed var(--empty-border);
+    background:repeating-linear-gradient(45deg, rgba(183,196,204,.08), rgba(183,196,204,.08) 6px, transparent 6px, transparent 12px);
+    color:var(--ink-soft);
+    transition:transform .12s ease, border-color .15s ease, background .15s ease;
+    min-height:64px;
   }
-  .target-date strong { color: #FBBF24; font-size: 15px; }
-
-  /* ---- MENSAGEM MOTIVACIONAL ---- */
-  .motivation {
-    background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(249,115,22,0.1));
-    border: 2px solid rgba(251,191,36,0.3);
-    border-radius: 16px;
-    padding: 16px;
-    text-align: center;
-    margin-bottom: 20px;
-    animation: popIn 1s 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
-    position: relative;
-    overflow: hidden;
+  .desk:active{transform:scale(.95);}
+  .desk .plus{
+    font-size:1.3rem;
+    line-height:1;
+    color:var(--empty-border);
   }
-  .motivation::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 50% 0%, rgba(251,191,36,0.1), transparent 70%);
-  }
-  .motivation-text {
-    font-family: 'Fredoka One', cursive;
-    font-size: clamp(16px, 4.5vw, 22px);
-    color: #FDE68A;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    position: relative;
-  }
-  .motivation-sub {
-    font-size: 12px;
-    color: rgba(253,230,138,0.7);
-    margin-top: 4px;
-    font-weight: 700;
-    letter-spacing: 1px;
+  .desk .idx{
+    position:absolute;
+    top:4px; left:6px;
+    font-size:.6rem;
+    color:rgba(92,107,114,.55);
+    font-weight:600;
   }
 
-  /* ---- AGENDA / ITENS ESCOLA ---- */
-  .school-items {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    width: 100%;
-    margin-bottom: 20px;
-    animation: slideUp 0.8s 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+  .desk.occupied{
+    border:1.5px solid rgba(51,88,127,.16);
+    background:#fff;
+    box-shadow:0 2px 6px rgba(38,51,58,.08);
   }
-  @keyframes slideUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
-
-  .school-card {
-    background: rgba(255,255,255,0.07);
-    border: 1.5px solid rgba(255,255,255,0.12);
-    border-radius: 14px;
-    padding: 14px 10px;
-    text-align: center;
-    transition: transform 0.2s, background 0.2s;
-    cursor: default;
+  .desk .avatar{
+    width:30px;height:30px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:.78rem;
   }
-  .school-card:hover { transform: translateY(-3px) scale(1.03); background: rgba(255,255,255,0.12); }
-  .school-card .icon { font-size: clamp(24px, 6vw, 32px); margin-bottom: 6px; display: block; }
-  .school-card .card-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.7); letter-spacing: 1px; text-transform: uppercase; }
-  .school-card .card-value { font-family: 'Fredoka One', cursive; font-size: clamp(18px, 5vw, 24px); color: #FDE68A; margin-top: 2px; }
-
-  /* ---- RODAPÉ ---- */
-  .footer {
-    text-align: center;
-    font-size: 11px;
-    color: rgba(255,255,255,0.3);
-    font-weight: 700;
-    letter-spacing: 1px;
-    margin-top: 8px;
+  .desk .name{
+    font-family:'Fredoka',sans-serif;
+    font-weight:500;
+    font-size:.72rem;
+    color:var(--ink);
+    text-align:center;
+    line-height:1.15;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    padding:0 2px;
   }
 
-  /* ---- CONFETE ao finalizar ---- */
-  .confetti-piece {
-    position: fixed;
-    width: 10px; height: 10px;
-    border-radius: 2px;
-    animation: confettiFall var(--cf-d, 3s) var(--cf-delay, 0s) ease-in forwards;
-    z-index: 100;
-    pointer-events: none;
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+    flex-wrap:wrap;
+    position:relative;
+    z-index:1;
   }
-  @keyframes confettiFall {
-    0%   { top: -10px; opacity: 1; transform: translateX(0) rotate(0deg); }
-    100% { top: 110vh; opacity: 0.2; transform: translateX(var(--cf-x, 50px)) rotate(720deg); }
+  .tool-btn{
+    flex:1 1 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    border:none;
+    background:#fff;
+    border:1.5px solid rgba(38,51,58,.1);
+    color:var(--primary-dark);
+    font-weight:600;
+    font-size:.86rem;
+    padding:12px 14px;
+    border-radius:var(--radius-md);
+    min-height:46px;
+    box-shadow:var(--shadow-card);
+    transition:background .15s ease, transform .12s ease;
+  }
+  .tool-btn:active{transform:scale(.97);}
+  .tool-btn.primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
+  .tool-btn.danger{ color:var(--danger); }
+  .tool-btn svg{flex:none;}
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(31,41,46,.42);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:50;
+    padding:0;
+  }
+  .overlay.open{display:flex;}
+  @media (min-width:640px){
+    .overlay{align-items:center;}
   }
 
-  /* ---- PULSAÇÃO DO SEGUNDO ---- */
-  .pulse-ring {
-    position: absolute;
-    inset: -4px;
-    border-radius: 18px;
-    border: 2px solid rgba(244,114,182,0.4);
-    animation: pulseRing 1s ease-out infinite;
-    pointer-events: none;
+  .modal{
+    background:#fff;
+    width:100%;
+    max-width:460px;
+    max-height:88vh;
+    overflow-y:auto;
+    border-radius:22px 22px 0 0;
+    padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    box-shadow:var(--shadow-pop);
+    animation:slideUp .22s ease;
   }
-  @keyframes pulseRing {
-    0%   { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1.15); }
+  @media (min-width:640px){
+    .modal{border-radius:var(--radius-lg); animation:popIn .18s ease;}
+  }
+  @keyframes slideUp{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  @keyframes popIn{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+  .modal-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .modal-head h2{
+    font-size:1.1rem;font-weight:600;margin:0;color:var(--primary-dark);
+  }
+  .modal-head span{
+    display:block;font-size:.76rem;color:var(--ink-soft);font-family:'Inter';margin-top:2px;font-weight:500;
+  }
+  .close-x{
+    border:none;background:var(--primary-wash);color:var(--primary-dark);
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex:none;
   }
 
-  /* ---- RÉGUA DECORATIVA ---- */
-  .ruler {
-    height: 20px;
-    width: 100%;
-    background: repeating-linear-gradient(
-      90deg,
-      #D97706 0px, #D97706 2px,
-      #FDE68A 2px, #FDE68A 20px,
-      #D97706 20px, #D97706 22px,
-      #FBBF24 22px, #FBBF24 40px
-    );
-    border-radius: 4px;
-    margin-bottom: 20px;
-    opacity: 0.6;
-    animation: slideRight 1s 0.1s both;
+  .field-label{
+    font-size:.78rem;font-weight:600;color:var(--ink-soft);
+    margin:14px 0 6px;
+    display:block;
   }
-  @keyframes slideRight { from{opacity:0;transform:scaleX(0)} to{opacity:0.6;transform:scaleX(1)} }
-  .ruler-marks {
-    height: 12px;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 2px;
-    align-items: flex-end;
-    margin-top: -16px;
-    margin-bottom: 8px;
-    pointer-events: none;
+  .search-input, textarea.roster-input, .num-input{
+    width:100%;
+    border:1.5px solid rgba(38,51,58,.14);
+    border-radius:var(--radius-sm);
+    padding:11px 13px;
+    font-size:.92rem;
+    color:var(--ink);
+    background:var(--paper);
+  }
+  .search-input:focus, textarea.roster-input:focus, .num-input:focus{
+    outline:none;border-color:var(--primary-light);
+  }
+  textarea.roster-input{min-height:84px;resize:vertical;line-height:1.5;}
+
+  .pick-list{
+    display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:280px;overflow-y:auto;
+  }
+  .pick-item{
+    display:flex;align-items:center;gap:10px;
+    border:1px solid rgba(38,51,58,.08);
+    border-radius:var(--radius-sm);
+    padding:10px 12px;
+    background:#fff;
+    text-align:left;
+    width:100%;
+  }
+  .pick-item:active{background:var(--primary-wash);}
+  .pick-item .avatar{width:26px;height:26px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.7rem;display:flex;align-items:center;justify-content:center;flex:none;}
+  .pick-item span{font-size:.88rem;font-weight:500;}
+  .empty-note{
+    text-align:center;color:var(--ink-soft);font-size:.84rem;padding:18px 10px;line-height:1.5;
+  }
+
+  .current-occupant{
+    display:flex;align-items:center;gap:10px;
+    background:var(--primary-wash);
+    border-radius:var(--radius-sm);
+    padding:12px;
+    margin-bottom:4px;
+  }
+  .current-occupant .avatar{width:32px;height:32px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.78rem;display:flex;align-items:center;justify-content:center;flex:none;}
+  .current-occupant .who{flex:1;}
+  .current-occupant .who b{display:block;font-size:.9rem;}
+  .current-occupant .who small{color:var(--ink-soft);font-size:.72rem;}
+  .btn-remove-desk{
+    border:none;background:var(--danger-wash);color:var(--danger);
+    font-weight:600;font-size:.78rem;
+    padding:8px 12px;border-radius:9px;
+  }
+
+  .divider-label{
+    font-size:.72rem;color:var(--ink-soft);font-weight:600;
+    text-transform:none;
+    margin:14px 0 6px;
+    display:block;
+  }
+
+  .btn-full{
+    width:100%;border:none;background:var(--primary);color:#fff;
+    font-weight:600;font-size:.9rem;padding:12px;border-radius:var(--radius-sm);
+    margin-top:14px;min-height:46px;
+  }
+  .btn-full:active{background:var(--primary-dark);}
+
+  /* roster list */
+  .roster-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;}
+  .roster-row{
+    display:flex;align-items:center;gap:10px;
+    border:1px solid rgba(38,51,58,.08);
+    border-radius:var(--radius-sm);
+    padding:9px 10px;
+  }
+  .roster-row .avatar{width:26px;height:26px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.68rem;display:flex;align-items:center;justify-content:center;flex:none;}
+  .roster-row .info{flex:1;min-width:0;}
+  .roster-row .info b{display:block;font-size:.86rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .roster-row .info small{color:var(--ink-soft);font-size:.68rem;}
+  .roster-row .info small.free{color:var(--wood);}
+  .roster-row button{
+    border:none;background:transparent;color:var(--danger);
+    width:30px;height:30px;border-radius:8px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .roster-row button:active{background:var(--danger-wash);}
+
+  /* config modal */
+  .config-row{display:flex;gap:12px;}
+  .config-field{flex:1;}
+  .config-total{
+    margin-top:14px;background:var(--primary-wash);border-radius:var(--radius-sm);
+    padding:10px 12px;font-size:.82rem;color:var(--primary-dark);font-weight:600;
+  }
+  .config-warn{
+    margin-top:10px;background:var(--danger-wash);color:var(--danger);
+    border-radius:var(--radius-sm);padding:10px 12px;font-size:.78rem;line-height:1.5;display:none;
+  }
+
+  /* toast */
+  .toast{
+    position:fixed;
+    bottom:18px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--ink);
+    color:#fff;
+    font-size:.82rem;
+    font-weight:500;
+    padding:11px 18px;
+    border-radius:999px;
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease;
+    z-index:80;
+    max-width:88vw;
+    text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
   }
 </style>
 </head>
 <body>
 
-<!-- FUNDO: ESTRELAS -->
-<div class="stars" id="stars"></div>
+<div class="app">
 
-<!-- ITENS ESCOLARES FLUTUANTES -->
-<div class="float-items" id="floatItems"></div>
+  <header class="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <div>
+        <h1>Mapa da Sala</h1>
+        <span class="sub">Disposição de Carteiras por Turma</span>
+      </div>
+    </div>
+    <div class="turno-switch" role="tablist" aria-label="Selecionar turno">
+      <button class="turno-btn active" data-turno="manha" role="tab" aria-selected="true">Manhã</button>
+      <button class="turno-btn" data-turno="tarde" role="tab" aria-selected="false">Tarde</button>
+    </div>
+  </header>
 
-<div class="container">
+  <nav class="salas-tabs" id="salasTabs" aria-label="Selecionar sala"></nav>
 
-  <!-- RÉGUA -->
-  <div class="ruler"></div>
+  <main class="stage">
+    <div class="board">
+      <span class="board-label">Lousa</span>
+      <span class="board-sub">mesa do professor · frente da sala</span>
+    </div>
+    <div class="grid-scroll">
+      <div class="desks-grid" id="desksGrid"></div>
+    </div>
+  </main>
 
-  <!-- CABEÇALHO -->
-  <div class="header">
-    <div class="emoji-row">📚✏️🎒</div>
-    <h1 class="title">Faltam Pouco para as Férias!</h1>
-    <p class="subtitle">🏖️ Contagem Regressiva Oficial 🌴</p>
+  <div class="toolbar">
+    <button class="tool-btn primary" id="btnAlunos">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Alunos
+    </button>
+    <button class="tool-btn" id="btnConfig">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Configurar sala
+    </button>
+    <button class="tool-btn danger" id="btnLimpar">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Limpar sala
+    </button>
   </div>
-
-  <!-- LOUSA PRINCIPAL -->
-  <div class="chalkboard">
-    <div class="chalkboard-label">⏱️ Tempo Restante</div>
-
-    <div class="counter-grid">
-      <div class="time-card dias">
-        <span class="time-icon">☀️</span>
-        <span class="time-number" id="days">--</span>
-        <span class="time-label">Dias</span>
-      </div>
-      <div class="time-card horas">
-        <span class="time-icon">⏰</span>
-        <span class="time-number" id="hours">--</span>
-        <span class="time-label">Horas</span>
-      </div>
-      <div class="time-card minutos">
-        <span class="time-icon">📋</span>
-        <span class="time-number" id="minutes">--</span>
-        <span class="time-label">Minutos</span>
-      </div>
-      <div class="time-card segundos" style="position:relative">
-        <div class="pulse-ring"></div>
-        <span class="time-icon">💥</span>
-        <span class="time-number" id="seconds">--</span>
-        <span class="time-label">Segundos</span>
-      </div>
-    </div>
-
-    <!-- BARRA DE PROGRESSO -->
-    <div class="progress-section">
-      <div class="progress-label">
-        <span>📅 Primeiro Semestre</span>
-        <span id="prog-label">Calculando...</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" id="progressFill" style="width:0%"></div>
-      </div>
-      <div class="progress-percent" id="progPercent">...%</div>
-    </div>
-
-    <!-- DATA ALVO -->
-    <div class="target-date">
-      🎯 Meta: <strong>07 de Julho de 2026</strong> — Início das Férias! 🌴
-    </div>
-  </div>
-
-  <!-- MENSAGEM MOTIVACIONAL -->
-  <div class="motivation">
-    <div class="motivation-text" id="motivText">🔥 Você consegue! Foco nos estudos!</div>
-    <div class="motivation-sub" id="motivSub">Uma mensagem nova a cada minuto</div>
-  </div>
-
-  <!-- CARDS INFORMATIVOS -->
-  <div class="school-items">
-    <div class="school-card">
-      <span class="icon">📝</span>
-      <span class="card-label">Total Segundos</span>
-      <div class="card-value" id="totalSec">--</div>
-    </div>
-    <div class="school-card">
-      <span class="icon">📖</span>
-      <span class="card-label">Total Horas</span>
-      <div class="card-value" id="totalHrs">--</div>
-    </div>
-    <div class="school-card">
-      <span class="icon">🗓️</span>
-      <span class="card-label">Semanas</span>
-      <div class="card-value" id="totalWeeks">--</div>
-    </div>
-    <div class="school-card">
-      <span class="icon">🌙</span>
-      <span class="card-label">Noites</span>
-      <div class="card-value" id="totalNights">--</div>
-    </div>
-  </div>
-
-  <div class="footer">✏️ Feito com 💛 para os Professores DVCO TECH • 07/07/2026 ✏️</div>
-
 </div>
 
+<!-- Modal: escolher/trocar aluno de uma carteira -->
+<div class="overlay" id="overlayDesk">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2>Carteira</h2>
+        <span id="deskModalSubtitle">Fileira 1 · Coluna 1</span>
+      </div>
+      <button class="close-x" data-close="overlayDesk" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div id="currentOccupantBlock"></div>
+
+    <span class="divider-label" id="pickDividerLabel">Selecionar aluno</span>
+    <input type="text" class="search-input" id="deskSearch" placeholder="Buscar aluno...">
+    <div class="pick-list" id="deskPickList"></div>
+  </div>
+</div>
+
+<!-- Modal: gerenciar alunos da turma -->
+<div class="overlay" id="overlayStudents">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2>Alunos da turma</h2>
+        <span id="studentsModalSubtitle">Manhã · Sala 1</span>
+      </div>
+      <button class="close-x" data-close="overlayStudents" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <label class="field-label" for="rosterTextarea">Adicionar alunos (um nome por linha)</label>
+    <textarea class="roster-input" id="rosterTextarea" placeholder="Ana Silva&#10;Bruno Costa&#10;Carla Souza"></textarea>
+    <button class="btn-full" id="btnAddRoster">Adicionar à lista</button>
+
+    <span class="divider-label">Lista atual (<span id="rosterCount">0</span>)</span>
+    <div class="roster-list" id="rosterList"></div>
+  </div>
+</div>
+
+<!-- Modal: configurar tamanho da sala -->
+<div class="overlay" id="overlayConfig">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2>Configurar sala</h2>
+        <span id="configModalSubtitle">Manhã · Sala 1</span>
+      </div>
+      <button class="close-x" data-close="overlayConfig" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="config-row">
+      <div class="config-field">
+        <label class="field-label" for="rowsInput">Fileiras</label>
+        <input type="number" class="num-input" id="rowsInput" min="1" max="10" value="4">
+      </div>
+      <div class="config-field">
+        <label class="field-label" for="colsInput">Colunas</label>
+        <input type="number" class="num-input" id="colsInput" min="1" max="10" value="5">
+      </div>
+    </div>
+    <div class="config-total" id="configTotal">Total: 20 carteiras</div>
+    <div class="config-warn" id="configWarn"></div>
+    <button class="btn-full" id="btnSaveConfig">Salvar configuração</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-// --- CONFIG ---
-const TARGET = new Date('2026-07-07T00:00:00');
-// Início do ano semestre (estimativa: 3 de fevereiro de 2026)
-const SCHOOL_START = new Date('2026-02-03T00:00:00');
+(function(){
+  "use strict";
 
-// --- ESTRELAS ---
-const starsEl = document.getElementById('stars');
-for (let i = 0; i < 80; i++) {
-  const s = document.createElement('div');
-  s.className = 'star';
-  const size = Math.random() * 3 + 1;
-  s.style.cssText = `
-    width:${size}px; height:${size}px;
-    left:${Math.random()*100}%;
-    top:${Math.random()*100}%;
-    --d:${2+Math.random()*4}s;
-    --op:${0.3+Math.random()*0.7};
-    animation-delay:${Math.random()*4}s;
-  `;
-  starsEl.appendChild(s);
-}
+  var STORAGE_KEY = "mapaSalaAula_v1";
+  var TURNOS = ["manha","tarde"];
+  var NUM_SALAS = 10;
 
-// --- ITENS FLUTUANTES ---
-const floatEl = document.getElementById('floatItems');
-const items = ['📚','✏️','📏','📐','🎒','📓','🖊️','🔬','🧮','🎨','📌','✂️','🖍️','📎','🗂️'];
-items.forEach((icon, i) => {
-  const el = document.createElement('div');
-  el.className = 'float-item';
-  el.textContent = icon;
-  const left = 5 + (i / items.length) * 90;
-  const dur = 7 + Math.random() * 10;
-  const delay = Math.random() * 8;
-  const rot = (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 360);
-  el.style.cssText = `left:${left}%;--fd:${dur}s;--r:${rot}deg;animation-delay:${delay}s;`;
-  floatEl.appendChild(el);
-});
+  var AVATAR_COLORS = ["#33587F","#5B8A6F","#B0524A","#C98A3F","#6E5B9C","#4A8B94","#A5644B","#5C7A3C"];
 
-// --- MENSAGENS MOTIVACIONAIS ---
-const msgs = [
-  ['🔥 Você consegue! Foco noo Trabalho!', 'Cada dia é uma vitória!'],
-  ['🌟 Continue firme! As férias chegam!', 'Disciplina gera liberdade!'],
-  ['📚 Estude hoje, relaxe em julho!', 'O esforço vale a pena!'],
-  ['💪 Seja dedicado! O tempo passa!', 'Sua turma conta com você!'],
-  ['🎯 Mantenha o foco e o ritmo!', 'Falta pouco para a liberdade!'],
-  ['🚀 Acredite em você! Vai chegar!', 'Um passo de cada vez!'],
-  ['🌈 Julho está chegando, campeão!', 'Colhe o que planta hoje!'],
-  ['🏆 Professor nota 10 não desiste!', 'Sua dedicação é incrível!'],
-];
+  /* ---------- Estado ---------- */
+  var state = {
+    current: { turno:"manha", sala:1 },
+    data: {}
+  };
 
-let msgIdx = 0;
-function updateMotivation() {
-  const [text, sub] = msgs[msgIdx % msgs.length];
-  const el = document.getElementById('motivText');
-  const sub_el = document.getElementById('motivSub');
-  el.style.opacity = 0;
-  el.style.transform = 'translateY(10px)';
-  setTimeout(() => {
-    el.textContent = text;
-    sub_el.textContent = sub;
-    el.style.transition = 'opacity 0.5s, transform 0.5s';
-    el.style.opacity = 1;
-    el.style.transform = 'translateY(0)';
-  }, 400);
-  msgIdx++;
-}
-updateMotivation();
-setInterval(updateMotivation, 60000);
-
-// --- ANIMAÇÃO DE NÚMERO ---
-let prevValues = { days: -1, hours: -1, minutes: -1, seconds: -1 };
-function animateNum(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const str = String(val).padStart(2, '0');
-  if (el.textContent !== str) {
-    el.textContent = str;
-    el.classList.remove('flip');
-    void el.offsetWidth;
-    el.classList.add('flip');
-  }
-}
-
-// --- CONTADOR PRINCIPAL ---
-function updateCountdown() {
-  const now = new Date();
-  const diff = TARGET - now;
-
-  if (diff <= 0) {
-    // CHEGOU O DIA!
-    document.getElementById('days').textContent    = '00';
-    document.getElementById('hours').textContent   = '00';
-    document.getElementById('minutes').textContent = '00';
-    document.getElementById('seconds').textContent = '00';
-    document.getElementById('motivText').textContent = '🎉 FÉRIAS CHEGARAM! APROVEITE! 🎉';
-    launchConfetti();
-    return;
+  function defaultSala(){
+    return { rows:4, cols:5, roster:[], desks:{} };
   }
 
-  const totalSecs = Math.floor(diff / 1000);
-  const d = Math.floor(totalSecs / 86400);
-  const h = Math.floor((totalSecs % 86400) / 3600);
-  const m = Math.floor((totalSecs % 3600) / 60);
-  const s = totalSecs % 60;
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && parsed.data) state.data = parsed.data;
+        if(parsed && parsed.current) state.current = parsed.current;
+      }
+    }catch(e){ /* localStorage indisponível ou dado corrompido: segue com estado vazio */ }
 
-  animateNum('days', d);
-  animateNum('hours', h);
-  animateNum('minutes', m);
-  animateNum('seconds', s);
-
-  // Cards extras
-  document.getElementById('totalSec').textContent   = formatBig(totalSecs);
-  document.getElementById('totalHrs').textContent   = formatBig(Math.floor(totalSecs / 3600));
-  document.getElementById('totalWeeks').textContent = Math.floor(d / 7);
-  document.getElementById('totalNights').textContent = d;
-
-  // Barra de progresso
-  const totalDur = TARGET - SCHOOL_START;
-  const elapsed = now - SCHOOL_START;
-  const pct = Math.max(0, Math.min(100, (elapsed / totalDur) * 100));
-  document.getElementById('progressFill').style.width = pct.toFixed(1) + '%';
-  document.getElementById('progPercent').textContent = '📊 ' + pct.toFixed(1) + '% do Primeiro Semestre concluído';
-  document.getElementById('prog-label').textContent = Math.floor(pct) + '% feito!';
-}
-
-function formatBig(n) {
-  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
-  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
-  return String(n);
-}
-
-// --- CONFETE ---
-function launchConfetti() {
-  const colors = ['#FBBF24','#38BDF8','#22C55E','#EC4899','#A855F7','#F97316'];
-  for (let i = 0; i < 60; i++) {
-    const c = document.createElement('div');
-    c.className = 'confetti-piece';
-    const col = colors[Math.floor(Math.random() * colors.length)];
-    c.style.cssText = `
-      left:${Math.random()*100}%;
-      background:${col};
-      --cf-d:${2+Math.random()*2}s;
-      --cf-delay:${Math.random()*2}s;
-      --cf-x:${(Math.random()-0.5)*200}px;
-      border-radius:${Math.random()>0.5?'50%':'2px'};
-    `;
-    document.body.appendChild(c);
-    setTimeout(() => c.remove(), 5000);
+    TURNOS.forEach(function(turno){
+      if(!state.data[turno]) state.data[turno] = {};
+      for(var i=1;i<=NUM_SALAS;i++){
+        if(!state.data[turno][i]) state.data[turno][i] = defaultSala();
+      }
+    });
   }
-  setTimeout(launchConfetti, 6000);
-}
 
-updateCountdown();
-setInterval(updateCountdown, 1000);
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  function currentSala(){
+    return state.data[state.current.turno][state.current.sala];
+  }
+
+  /* ---------- Utilidades ---------- */
+  function initials(name){
+    var parts = name.trim().split(/\s+/);
+    var a = parts[0] ? parts[0][0] : "";
+    var b = parts.length>1 ? parts[parts.length-1][0] : "";
+    return (a+b).toUpperCase();
+  }
+  function colorFor(name){
+    var hash = 0;
+    for(var i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+  function assignedNames(sala){
+    var set = {};
+    Object.keys(sala.desks).forEach(function(k){ set[sala.desks[k]] = true; });
+    return set;
+  }
+  function unassignedRoster(sala){
+    var assigned = assignedNames(sala);
+    return sala.roster.filter(function(n){ return !assigned[n]; });
+  }
+
+  var toastTimer;
+  function showToast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  /* ---------- Render: topbar / tabs ---------- */
+  function renderTurnoButtons(){
+    document.querySelectorAll(".turno-btn").forEach(function(btn){
+      var active = btn.dataset.turno === state.current.turno;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", active ? "true":"false");
+    });
+  }
+
+  function renderSalasTabs(){
+    var nav = document.getElementById("salasTabs");
+    nav.innerHTML = "";
+    for(var i=1;i<=NUM_SALAS;i++){
+      var chip = document.createElement("button");
+      chip.className = "sala-chip" + (i===state.current.sala ? " active":"");
+      chip.textContent = "Sala " + i;
+      chip.dataset.sala = i;
+      chip.addEventListener("click", function(){
+        state.current.sala = parseInt(this.dataset.sala,10);
+        saveState();
+        renderAll();
+      });
+      nav.appendChild(chip);
+    }
+  }
+
+  /* ---------- Render: grid de carteiras ---------- */
+  function renderGrid(){
+    var sala = currentSala();
+    var grid = document.getElementById("desksGrid");
+    grid.style.setProperty("--cols", sala.cols);
+    grid.innerHTML = "";
+
+    for(var r=0;r<sala.rows;r++){
+      for(var c=0;c<sala.cols;c++){
+        var key = r+"-"+c;
+        var name = sala.desks[key];
+        var desk = document.createElement("button");
+        desk.className = "desk" + (name ? " occupied":"");
+        desk.dataset.key = key;
+        desk.setAttribute("aria-label", name ? ("Carteira ocupada por "+name) : ("Carteira vazia, fileira "+(r+1)+", coluna "+(c+1)));
+
+        var idxSpan = document.createElement("span");
+        idxSpan.className = "idx";
+        idxSpan.textContent = (r+1)+"·"+(c+1);
+        desk.appendChild(idxSpan);
+
+        if(name){
+          var av = document.createElement("div");
+          av.className = "avatar";
+          av.style.background = colorFor(name);
+          av.textContent = initials(name);
+          var nm = document.createElement("div");
+          nm.className = "name";
+          nm.textContent = name;
+          desk.appendChild(av);
+          desk.appendChild(nm);
+        }else{
+          var plus = document.createElement("span");
+          plus.className = "plus";
+          plus.textContent = "+";
+          desk.appendChild(plus);
+        }
+
+        desk.addEventListener("click", function(){ openDeskModal(this.dataset.key); });
+        grid.appendChild(desk);
+      }
+    }
+  }
+
+  function renderAll(){
+    renderTurnoButtons();
+    renderSalasTabs();
+    renderGrid();
+  }
+
+  /* ---------- Modal: carteira ---------- */
+  var activeDeskKey = null;
+
+  function openDeskModal(key){
+    activeDeskKey = key;
+    var sala = currentSala();
+    var parts = key.split("-");
+    var r = parseInt(parts[0],10)+1, c = parseInt(parts[1],10)+1;
+    document.getElementById("deskModalSubtitle").textContent = "Fileira "+r+" · Coluna "+c;
+
+    var occupantBlock = document.getElementById("currentOccupantBlock");
+    occupantBlock.innerHTML = "";
+    var currentName = sala.desks[key];
+
+    if(currentName){
+      var wrap = document.createElement("div");
+      wrap.className = "current-occupant";
+      var av = document.createElement("div");
+      av.className="avatar"; av.style.background=colorFor(currentName); av.textContent=initials(currentName);
+      var who = document.createElement("div");
+      who.className="who";
+      who.innerHTML = "<b></b><small>Sentado(a) aqui</small>";
+      who.querySelector("b").textContent = currentName;
+      var rm = document.createElement("button");
+      rm.className="btn-remove-desk";
+      rm.textContent="Remover";
+      rm.addEventListener("click", function(){
+        delete sala.desks[key];
+        saveState();
+        renderGrid();
+        closeOverlay("overlayDesk");
+        showToast(currentName + " foi removido(a) da carteira");
+      });
+      wrap.appendChild(av); wrap.appendChild(who); wrap.appendChild(rm);
+      occupantBlock.appendChild(wrap);
+      document.getElementById("pickDividerLabel").textContent = "Trocar por";
+    }else{
+      document.getElementById("pickDividerLabel").textContent = "Selecionar aluno";
+    }
+
+    document.getElementById("deskSearch").value = "";
+    renderPickList("");
+    openOverlay("overlayDesk");
+    setTimeout(function(){ document.getElementById("deskSearch").focus(); }, 150);
+  }
+
+  function renderPickList(filter){
+    var sala = currentSala();
+    var list = document.getElementById("deskPickList");
+    list.innerHTML = "";
+    var pool = unassignedRoster(sala).filter(function(n){
+      return n.toLowerCase().indexOf(filter.toLowerCase()) !== -1;
+    });
+
+    if(pool.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = sala.roster.length === 0
+        ? "Nenhum aluno cadastrado ainda. Toque em \"Alunos\" para adicionar a turma."
+        : "Todos os alunos já estão em uma carteira, ou nenhum nome corresponde à busca.";
+      list.appendChild(empty);
+      return;
+    }
+
+    pool.forEach(function(name){
+      var item = document.createElement("button");
+      item.className = "pick-item";
+      var av = document.createElement("div");
+      av.className="avatar"; av.style.background=colorFor(name); av.textContent=initials(name);
+      var span = document.createElement("span");
+      span.textContent = name;
+      item.appendChild(av); item.appendChild(span);
+      item.addEventListener("click", function(){
+        sala.desks[activeDeskKey] = name;
+        saveState();
+        renderGrid();
+        closeOverlay("overlayDesk");
+        showToast(name + " foi alocado(a) na carteira");
+      });
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById("deskSearch").addEventListener("input", function(){
+    renderPickList(this.value);
+  });
+
+  /* ---------- Modal: alunos ---------- */
+  function openStudentsModal(){
+    document.getElementById("studentsModalSubtitle").textContent =
+      (state.current.turno==="manha"?"Manhã":"Tarde") + " · Sala " + state.current.sala;
+    document.getElementById("rosterTextarea").value = "";
+    renderRosterList();
+    openOverlay("overlayStudents");
+  }
+
+  function renderRosterList(){
+    var sala = currentSala();
+    var listEl = document.getElementById("rosterList");
+    document.getElementById("rosterCount").textContent = sala.roster.length;
+    listEl.innerHTML = "";
+
+    if(sala.roster.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = "Ainda não há alunos nesta turma. Use o campo acima para adicionar.";
+      listEl.appendChild(empty);
+      return;
+    }
+
+    var assigned = {};
+    Object.keys(sala.desks).forEach(function(k){
+      var n = sala.desks[k];
+      var p = k.split("-");
+      assigned[n] = "Fileira "+(parseInt(p[0],10)+1)+" · Coluna "+(parseInt(p[1],10)+1);
+    });
+
+    sala.roster.slice().sort(function(a,b){return a.localeCompare(b,'pt-BR');}).forEach(function(name){
+      var row = document.createElement("div");
+      row.className = "roster-row";
+      var av = document.createElement("div");
+      av.className="avatar"; av.style.background=colorFor(name); av.textContent=initials(name);
+      var info = document.createElement("div");
+      info.className="info";
+      var loc = assigned[name];
+      info.innerHTML = "<b></b><small class='"+(loc?"":"free")+"'></small>";
+      info.querySelector("b").textContent = name;
+      info.querySelector("small").textContent = loc ? loc : "Sem carteira";
+      var del = document.createElement("button");
+      del.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+      del.setAttribute("aria-label","Remover "+name);
+      del.addEventListener("click", function(){
+        removeStudent(name);
+      });
+      row.appendChild(av); row.appendChild(info); row.appendChild(del);
+      listEl.appendChild(row);
+    });
+  }
+
+  function removeStudent(name){
+    var sala = currentSala();
+    sala.roster = sala.roster.filter(function(n){ return n!==name; });
+    Object.keys(sala.desks).forEach(function(k){
+      if(sala.desks[k] === name) delete sala.desks[k];
+    });
+    saveState();
+    renderRosterList();
+    renderGrid();
+    showToast(name + " foi removido(a) da turma");
+  }
+
+  document.getElementById("btnAddRoster").addEventListener("click", function(){
+    var sala = currentSala();
+    var raw = document.getElementById("rosterTextarea").value;
+    var names = raw.split("\n").map(function(s){return s.trim();}).filter(Boolean);
+    var existing = {};
+    sala.roster.forEach(function(n){ existing[n.toLowerCase()] = true; });
+    var added = 0;
+    names.forEach(function(n){
+      if(!existing[n.toLowerCase()]){
+        sala.roster.push(n);
+        existing[n.toLowerCase()] = true;
+        added++;
+      }
+    });
+    if(added>0){
+      saveState();
+      document.getElementById("rosterTextarea").value = "";
+      renderRosterList();
+      showToast(added===1 ? "1 aluno adicionado" : added+" alunos adicionados");
+    }
+  });
+
+  /* ---------- Modal: configurar sala ---------- */
+  function openConfigModal(){
+    var sala = currentSala();
+    document.getElementById("configModalSubtitle").textContent =
+      (state.current.turno==="manha"?"Manhã":"Tarde") + " · Sala " + state.current.sala;
+    document.getElementById("rowsInput").value = sala.rows;
+    document.getElementById("colsInput").value = sala.cols;
+    updateConfigPreview();
+    openOverlay("overlayConfig");
+  }
+
+  function updateConfigPreview(){
+    var rows = clampInt(document.getElementById("rowsInput").value,1,10);
+    var cols = clampInt(document.getElementById("colsInput").value,1,10);
+    document.getElementById("configTotal").textContent = "Total: " + (rows*cols) + " carteiras";
+
+    var sala = currentSala();
+    var displaced = [];
+    Object.keys(sala.desks).forEach(function(k){
+      var p = k.split("-");
+      var r = parseInt(p[0],10), c = parseInt(p[1],10);
+      if(r>=rows || c>=cols) displaced.push(sala.desks[k]);
+    });
+    var warn = document.getElementById("configWarn");
+    if(displaced.length>0){
+      warn.style.display = "block";
+      warn.textContent = displaced.length===1
+        ? ("1 aluno ficará sem carteira: " + displaced[0])
+        : (displaced.length + " alunos ficarão sem carteira: " + displaced.join(", "));
+    }else{
+      warn.style.display = "none";
+    }
+  }
+  function clampInt(v,min,max){
+    v = parseInt(v,10);
+    if(isNaN(v)) v = min;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  document.getElementById("rowsInput").addEventListener("input", updateConfigPreview);
+  document.getElementById("colsInput").addEventListener("input", updateConfigPreview);
+
+  document.getElementById("btnSaveConfig").addEventListener("click", function(){
+    var sala = currentSala();
+    var rows = clampInt(document.getElementById("rowsInput").value,1,10);
+    var cols = clampInt(document.getElementById("colsInput").value,1,10);
+    var newDesks = {};
+    Object.keys(sala.desks).forEach(function(k){
+      var p = k.split("-");
+      var r = parseInt(p[0],10), c = parseInt(p[1],10);
+      if(r<rows && c<cols) newDesks[k] = sala.desks[k];
+    });
+    sala.rows = rows; sala.cols = cols; sala.desks = newDesks;
+    saveState();
+    renderGrid();
+    closeOverlay("overlayConfig");
+    showToast("Sala configurada: " + rows + " fileiras × " + cols + " colunas");
+  });
+
+  /* ---------- Limpar sala ---------- */
+  document.getElementById("btnLimpar").addEventListener("click", function(){
+    var sala = currentSala();
+    if(Object.keys(sala.desks).length === 0){
+      showToast("Esta sala já está vazia");
+      return;
+    }
+    sala.desks = {};
+    saveState();
+    renderGrid();
+    showToast("Todas as carteiras foram desocupadas");
+  });
+
+  /* ---------- Overlays genéricos ---------- */
+  function openOverlay(id){ document.getElementById(id).classList.add("open"); }
+  function closeOverlay(id){ document.getElementById(id).classList.remove("open"); }
+
+  document.querySelectorAll("[data-close]").forEach(function(btn){
+    btn.addEventListener("click", function(){ closeOverlay(this.dataset.close); });
+  });
+  document.querySelectorAll(".overlay").forEach(function(ov){
+    ov.addEventListener("click", function(e){
+      if(e.target === ov) closeOverlay(ov.id);
+    });
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){
+      document.querySelectorAll(".overlay.open").forEach(function(ov){ closeOverlay(ov.id); });
+    }
+  });
+
+  /* ---------- Botões principais ---------- */
+  document.querySelectorAll(".turno-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      state.current.turno = this.dataset.turno;
+      if(state.current.sala > NUM_SALAS) state.current.sala = 1;
+      saveState();
+      renderAll();
+    });
+  });
+
+  document.getElementById("btnAlunos").addEventListener("click", openStudentsModal);
+  document.getElementById("btnConfig").addEventListener("click", openConfigModal);
+
+  /* ---------- Início ---------- */
+  loadState();
+  renderAll();
+
+})();
 </script>
 </body>
 </html>
