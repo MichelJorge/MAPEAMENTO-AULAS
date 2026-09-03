@@ -129,26 +129,23 @@
   </div>
   
   <div id="toast" class="toast">Ação concluída com sucesso!</div>
-
   <script>
     // ==========================================
-    // ⚙️ CONFIGURAÇÃO DO SUPABASE - VERIFIQUE!
+    // ⚙️ CONFIGURAÇÃO DO SUPABASE
     // ==========================================
-    // IMPORTANTE: Confirme se esses valores estão corretos no seu projeto Supabase
-   const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
-//                                                                      
+    const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
     
     // Inicializar cliente
     let supabase;
     try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { createClient } = window.supabase;
+      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       console.log("✅ Supabase inicializado");
     } catch (e) {
       console.error("❌ Erro ao inicializar Supabase:", e);
       updateStatus(false, "Falha na conexão");
     }
-
     const ROW_ID = "mapa_global";
 
     // ==========================================
@@ -172,10 +169,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
       });
       return state;
     }
-
     let state = createInitialState();
     let selectedDeskKey = null;
-    let useFallbackMode = false; // Usar armazenamento local se Supabase falhar
+    let useFallbackMode = false;
 
     // ==========================================
     // 🎯 FUNÇÕES DE STATUS E AVISOS
@@ -193,7 +189,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         el.className = useFallbackMode ? "status-syncing" : "status-ok";
       }
     }
-
     function showToast(mensagem, isErro = false) {
       const toast = document.getElementById("toast");
       toast.textContent = mensagem;
@@ -201,7 +196,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
       toast.style.display = "block";
       setTimeout(() => { toast.style.display = "none"; }, 3000);
     }
-
     function currentSala() {
       return state.turnos[state.current.turno][state.current.sala];
     }
@@ -210,9 +204,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
     // 💾 SINCRONIZAÇÃO COM SUPABASE
     // ==========================================
     async function saveState() {
-      // Salvar também no localStorage como garantia
       localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
-      
       if (useFallbackMode || !supabase) return;
       
       updateStatus(true);
@@ -220,13 +212,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         const { error } = await supabase
           .from("mapa_salas")
           .upsert({ id: ROW_ID, data: state, updated_at: new Date() });
-
         if (error) {
           console.warn("⚠️ Erro ao salvar no Supabase:", error);
-          if (error.code === "42P01") {
-            // Tabela não existe - ativar modo local
-            ativarModoLocal();
-          }
+          if (error.code === "42P01") ativarModoLocal();
         }
       } catch (err) {
         console.warn("⚠️ Falha de rede ao salvar:", err);
@@ -234,31 +222,23 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         updateStatus(false);
       }
     }
-
     function ativarModoLocal() {
       if (!useFallbackMode) {
         useFallbackMode = true;
         showToast("⚠️ Usando modo local. Crie a tabela no Supabase!", true);
       }
     }
-
     async function loadState() {
-      // Primeiro tentar carregar do backup local
       const backupLocal = localStorage.getItem("mapa_salas_backup");
       if (backupLocal) {
-        try {
-          state = JSON.parse(backupLocal);
-        } catch (e) {
-          state = createInitialState();
-        }
+        try { state = JSON.parse(backupLocal); } 
+        catch (e) { state = createInitialState(); }
       }
-
       if (!supabase) {
         ativarModoLocal();
         renderAll();
         return;
       }
-
       updateStatus(true, "Carregando...");
       try {
         const { data, error } = await supabase
@@ -266,14 +246,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
           .select("data")
           .eq("id", ROW_ID)
           .single();
-
         if (error) {
           if (error.code === "PGRST116") {
-            // Nenhum registro - criar inicial
             console.log("📝 Criando registro inicial...");
             await saveState();
           } else if (error.code === "42P01") {
-            // Tabela não existe
             ativarModoLocal();
           } else {
             console.warn("Erro ao carregar:", error);
@@ -290,19 +267,13 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         renderAll();
       }
     }
-
-    // 🔄 Escutar alterações em tempo real
     function inscreverMudancas() {
       if (useFallbackMode || !supabase) return;
-      
       try {
         supabase
           .channel('mapa_mudancas')
           .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'mapa_salas', 
-            filter: `id=eq.${ROW_ID}` 
+            event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` 
           }, payload => {
             if (payload.new?.data) {
               state = payload.new.data;
@@ -331,46 +302,36 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         sel.appendChild(opt);
       }
     }
-
     function renderGrid() {
       const container = document.getElementById("gridContainer");
       const sala = currentSala();
-      
       if (!sala) {
         container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>";
         return;
       }
-
       container.style.gridTemplateColumns = `repeat(${sala.cols}, minmax(100px, 1fr))`;
       container.innerHTML = "";
-
       for (let r = 0; r < sala.rows; r++) {
         for (let c = 0; c < sala.cols; c++) {
           criarCarteira(container, r, c, sala);
         }
       }
     }
-
     function criarCarteira(container, row, col, sala) {
       const key = `${row}-${col}`;
       const studentName = sala.desks?.[key];
-
       const desk = document.createElement("div");
       desk.className = `desk${studentName ? " occupied" : ""}`;
-
       const posSpan = document.createElement("span");
       posSpan.className = "pos";
       posSpan.textContent = `${row + 1}×${col + 1}`;
       desk.appendChild(posSpan);
-
       const nameSpan = document.createElement("span");
       nameSpan.textContent = studentName || "Livre";
       desk.appendChild(nameSpan);
-
       desk.addEventListener("click", () => openAssignModal(key));
       container.appendChild(desk);
     }
-
     function renderAll() {
       document.querySelectorAll(".turno-btn").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.turno === state.current.turno);
@@ -384,23 +345,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
     // ==========================================
     function openOverlay(id) { document.getElementById(id).classList.add("active"); }
     function closeOverlay(id) { document.getElementById(id).classList.remove("active"); }
-
     function openAssignModal(key) {
       selectedDeskKey = key;
       const sala = currentSala();
       const currentStudent = sala.desks?.[key];
-
       document.getElementById("assignTitle").textContent = 
         `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
-
       const list = document.getElementById("assignList");
       list.innerHTML = "";
-
       const assignedStudents = Object.values(sala.desks || {});
       const available = (sala.roster || []).filter(st => 
         st === currentStudent || !assignedStudents.includes(st)
       );
-
       if (available.length === 0) {
         list.innerHTML = "<p class='empty-message'>Nenhum aluno disponível.</p>";
       } else {
@@ -419,13 +375,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
           list.appendChild(btn);
         });
       }
-
       document.getElementById("btnUnassign").style.display = 
         currentStudent ? "inline-block" : "none";
       openOverlay("overlayAssign");
     }
-
-    // Desocupar carteira
     document.getElementById("btnUnassign").addEventListener("click", () => {
       if (selectedDeskKey) {
         const sala = currentSala();
@@ -438,30 +391,24 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         }
       }
     });
-
-    // Lista de Alunos
     function renderStudentsList() {
       const list = document.getElementById("studentsList");
       const sala = currentSala();
       list.innerHTML = "";
-
       if (!sala.roster?.length) {
         list.innerHTML = "<p class='empty-message'>Nenhum aluno cadastrado.</p>";
         return;
       }
-
       sala.roster.forEach((st, idx) => {
         const item = document.createElement("div");
         item.className = "student-item";
         item.innerHTML = `<span>${st}</span>`;
-
         const delBtn = document.createElement("button");
         delBtn.className = "btn-danger";
         delBtn.style.padding = "4px 8px";
         delBtn.textContent = "Remover";
         delBtn.addEventListener("click", () => {
           sala.roster.splice(idx, 1);
-          // Desocupa se estiver alocado
           if (sala.desks) {
             Object.keys(sala.desks).forEach(k => {
               if (sala.desks[k] === st) delete sala.desks[k];
@@ -476,15 +423,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         list.appendChild(item);
       });
     }
-
     document.getElementById("btnAddStudent").addEventListener("click", () => {
       const inp = document.getElementById("newStudentInput");
       const nome = inp.value.trim();
       if (!nome) return;
-
       const sala = currentSala();
       sala.roster = sala.roster || [];
-
       if (!sala.roster.includes(nome)) {
         sala.roster.push(nome);
         inp.value = "";
@@ -496,49 +440,38 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         showToast("⚠️ Aluno já cadastrado!", true);
       }
     });
-
-    // Configuração de Grade
     function clampInt(val, min, max) {
       const n = parseInt(val, 10);
       return isNaN(n) ? min : Math.max(min, Math.min(max, n));
     }
-
     function updateConfigPreview() {
       const rows = clampInt(document.getElementById("rowsInput").value, 1, 10);
       const cols = clampInt(document.getElementById("colsInput").value, 1, 10);
       document.getElementById("configTotal").textContent = 
         `Total: ${rows * cols} carteiras`;
     }
-
     document.getElementById("btnSaveConfig").addEventListener("click", () => {
       const sala = currentSala();
       const newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
       const newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
-
       sala.rows = newRows;
       sala.cols = newCols;
-
-      // Remover carteiras excedentes
       if (sala.desks) {
         Object.keys(sala.desks).forEach(k => {
           const [r, c] = k.split("-").map(Number);
           if (r >= newRows || c >= newCols) delete sala.desks[k];
         });
       }
-
       saveState();
       renderGrid();
       closeOverlay("overlayConfig");
       showToast("✅ Grade atualizada");
     });
-
-    // Eventos Gerais
     document.getElementById("selectSala").addEventListener("change", e => {
       state.current.sala = parseInt(e.target.value, 10);
       saveState();
       renderGrid();
     });
-
     document.querySelectorAll(".turno-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         state.current.turno = btn.dataset.turno;
@@ -546,12 +479,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         renderAll();
       });
     });
-
     document.getElementById("btnAlunos").addEventListener("click", () => {
       renderStudentsList();
       openOverlay("overlayStudents");
     });
-
     document.getElementById("btnConfig").addEventListener("click", () => {
       const sala = currentSala();
       document.getElementById("rowsInput").value = sala.rows;
@@ -559,7 +490,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
       updateConfigPreview();
       openOverlay("overlayConfig");
     });
-
     document.getElementById("btnLimpar").addEventListener("click", () => {
       if (confirm("Esvaziar todas as carteiras desta sala?")) {
         currentSala().desks = {};
@@ -568,7 +498,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
         showToast("✅ Carteiras liberadas");
       }
     });
-
     document.querySelectorAll("[data-close]").forEach(btn => {
       btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
     });
