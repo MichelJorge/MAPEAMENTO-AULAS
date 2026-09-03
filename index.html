@@ -1,1056 +1,474 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Mapa da Sala · Disposição de Carteiras</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --paper:#FBFAF5;
-    --paper-line:#DDE7E2;
-    --ink:#26333A;
-    --ink-soft:#5C6B72;
-    --board:#2F4A40;
-    --board-dark:#233A32;
-    --chalk:#F3F0E4;
-    --primary:#33587F;
-    --primary-dark:#264461;
-    --primary-light:#6E9CC2;
-    --primary-wash:#E7EEF4;
-    --wood:#C98A3F;
-    --danger:#B0524A;
-    --danger-wash:#F6E8E6;
-    --empty-border:#B7C4CC;
-    --radius-lg:20px;
-    --radius-md:14px;
-    --radius-sm:9px;
-    --shadow-card:0 1px 2px rgba(38,51,58,.06), 0 6px 16px rgba(38,51,58,.08);
-    --shadow-pop:0 12px 32px rgba(20,30,35,.22);
-    font-size:16px;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de Sala de Aula - Supabase</title>
 
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    font-family:'Inter',system-ui,sans-serif;
-    color:var(--ink);
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        transparent 0px, transparent 33px,
-        var(--paper-line) 33px, var(--paper-line) 34px
-      ),
-      var(--paper);
-    min-height:100vh;
-    -webkit-tap-highlight-color:transparent;
-  }
+  <!-- SDK do Supabase via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  h1,h2,h3,.display{
-    font-family:'Fredoka',system-ui,sans-serif;
-  }
+  <style>
+    :root {
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --text-color: #1f2937;
+      --border-color: #e5e7eb;
+      --occupied-bg: #dbeafe;
+      --occupied-border: #93c5fd;
+      --occupied-text: #1e40af;
+      --empty-bg: #f9fafb;
+      --empty-border: #d1d5db;
+    }
 
-  button{font-family:inherit;cursor:pointer;}
-  input,textarea{font-family:inherit;}
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
+    
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .controls-group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    
+    button { background-color: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    button:hover { background-color: var(--primary-hover); }
+    button.btn-danger { background-color: #ef4444; }
+    button.btn-danger:hover { background-color: #dc2626; }
+    button.btn-secondary { background-color: #6b7280; }
+    button.btn-secondary:hover { background-color: #4b5563; }
+    
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: white; }
+    .turno-btn { background: #e5e7eb; color: var(--text-color); }
+    .turno-btn.active { background: var(--primary); color: white; }
 
-  .app{
-    max-width:1000px;
-    margin:0 auto;
-    padding:18px 16px 90px;
-    position:relative;
-  }
+    #syncStatus { font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
+    .status-ok { background-color: #d1fae5; color: #065f46; }
+    .status-syncing { background-color: #fef3c7; color: #92400e; }
 
-  .app::before{
-    content:"";
-    position:absolute;
-    top:0; bottom:0; left:56px;
-    width:1px;
-    background:rgba(176,82,74,.18);
-    z-index:0;
-  }
-  @media (max-width:640px){ .app::before{ display:none; } }
+    .quadro { background: #374151; color: white; text-align: center; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; letter-spacing: 1px; }
 
-  /* ---------- Topbar ---------- */
-  .topbar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:14px;
-    background:#fff;
-    border:1px solid rgba(38,51,58,.06);
-    border-radius:var(--radius-lg);
-    padding:14px 18px;
-    box-shadow:var(--shadow-card);
-    position:relative;
-    z-index:1;
-    flex-wrap:wrap;
-  }
+    .grid-container { display: grid; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 10px; }
+    .desk { background: var(--empty-bg); border: 2px dashed var(--empty-border); border-radius: 8px; min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; text-align: center; font-size: 0.85rem; cursor: pointer; position: relative; }
+    .desk.occupied { background: var(--occupied-bg); border: 2px solid var(--occupied-border); color: var(--occupied-text); font-weight: 600; }
+    .desk .pos { position: absolute; top: 4px; left: 6px; font-size: 0.7rem; color: #9ca3af; }
 
-  .brand{display:flex;align-items:center;gap:10px;}
-  .brand svg{flex:none;color:var(--wood);}
-  .brand h1{
-    font-size:1.28rem;
-    font-weight:600;
-    margin:0;
-    color:var(--primary-dark);
-    letter-spacing:.2px;
-  }
-  .brand span.sub{
-    display:block;
-    font-size:.72rem;
-    color:var(--ink-soft);
-    font-family:'Inter',sans-serif;
-    font-weight:500;
-    margin-top:1px;
-  }
-
-  .turno-switch{
-    display:flex;
-    background:var(--primary-wash);
-    border-radius:999px;
-    padding:4px;
-    gap:4px;
-  }
-  .turno-btn{
-    border:none;
-    background:transparent;
-    color:var(--primary-dark);
-    font-weight:600;
-    font-size:.86rem;
-    padding:9px 18px;
-    border-radius:999px;
-    transition:background .18s ease, color .18s ease;
-    min-height:40px;
-  }
-  .turno-btn.active{
-    background:var(--primary);
-    color:#fff;
-    box-shadow:0 3px 8px rgba(38,68,97,.28);
-  }
-
-  /* ---------- Salas tabs ---------- */
-  .salas-tabs{
-    display:flex;
-    gap:8px;
-    overflow-x:auto;
-    padding:16px 2px 4px;
-    scroll-snap-type:x proximity;
-    position:relative;
-    z-index:1;
-  }
-  .salas-tabs::-webkit-scrollbar{height:5px;}
-  .salas-tabs::-webkit-scrollbar-thumb{background:var(--empty-border);border-radius:10px;}
-
-  .sala-chip{
-    flex:none;
-    scroll-snap-align:start;
-    border:1.5px solid rgba(51,88,127,.18);
-    background:#fff;
-    color:var(--primary-dark);
-    font-weight:600;
-    font-size:.86rem;
-    padding:9px 16px;
-    border-radius:12px;
-    min-height:42px;
-    white-space:nowrap;
-    transition:transform .12s ease, background .15s ease, color .15s ease, border-color .15s ease;
-  }
-  .sala-chip.active{
-    background:var(--primary-dark);
-    border-color:var(--primary-dark);
-    color:#fff;
-    transform:translateY(-1px);
-  }
-  .sala-chip:active{transform:scale(.96);}
-
-  /* ---------- Stage ---------- */
-  .stage{
-    background:#fff;
-    border-radius:var(--radius-lg);
-    box-shadow:var(--shadow-card);
-    border:1px solid rgba(38,51,58,.06);
-    padding:18px;
-    margin-top:14px;
-    position:relative;
-    z-index:1;
-  }
-
-  .board{
-    background:linear-gradient(180deg,var(--board) 0%, var(--board-dark) 100%);
-    border-radius:var(--radius-md);
-    padding:16px 14px;
-    text-align:center;
-    position:relative;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 6px 14px rgba(35,58,50,.25);
-    margin-bottom:20px;
-  }
-  .board::before{
-    content:"";
-    position:absolute;
-    left:50%; bottom:-7px;
-    transform:translateX(-50%);
-    width:70%; height:7px;
-    background:#8a6a3f;
-    border-radius:0 0 4px 4px;
-  }
-  .board-label{
-    color:var(--chalk);
-    font-family:'Fredoka',sans-serif;
-    font-weight:500;
-    font-size:.98rem;
-    letter-spacing:.4px;
-    opacity:.92;
-  }
-  .board-sub{
-    display:block;
-    color:var(--chalk);
-    opacity:.55;
-    font-size:.72rem;
-    font-family:'Inter',sans-serif;
-    margin-top:3px;
-  }
-
-  .grid-scroll{
-    overflow-x:auto;
-    padding-bottom:4px;
-  }
-
-  .desks-grid{
-    display:grid;
-    grid-template-columns:repeat(var(--cols,7), minmax(78px,1fr));
-    gap:10px;
-    width:100%;
-  }
-  @media (max-width:640px){
-    .desks-grid{ grid-template-columns:repeat(var(--cols,7), minmax(72px,1fr)); }
-  }
-
-  .desk{
-    position:relative;
-    aspect-ratio:1/0.92;
-    border-radius:var(--radius-sm);
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:4px;
-    padding:6px 4px;
-    border:2px dashed var(--empty-border);
-    background:repeating-linear-gradient(45deg, rgba(183,196,204,.08), rgba(183,196,204,.08) 6px, transparent 6px, transparent 12px);
-    color:var(--ink-soft);
-    transition:transform .12s ease, border-color .15s ease, background .15s ease;
-    min-height:64px;
-  }
-  .desk:active{transform:scale(.95);}
-  .desk .plus{
-    font-size:1.3rem;
-    line-height:1;
-    color:var(--empty-border);
-  }
-  .desk .idx{
-    position:absolute;
-    top:4px; left:6px;
-    font-size:.6rem;
-    color:rgba(92,107,114,.55);
-    font-weight:600;
-  }
-
-  .desk.occupied{
-    border:1.5px solid rgba(51,88,127,.16);
-    background:#fff;
-    box-shadow:0 2px 6px rgba(38,51,58,.08);
-  }
-  .desk .avatar{
-    width:30px;height:30px;
-    border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    color:#fff;
-    font-family:'Fredoka',sans-serif;
-    font-weight:600;
-    font-size:.78rem;
-  }
-  .desk .name{
-    font-family:'Fredoka',sans-serif;
-    font-weight:500;
-    font-size:.72rem;
-    color:var(--ink);
-    text-align:center;
-    line-height:1.15;
-    max-width:100%;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-    padding:0 2px;
-  }
-
-  /* ---------- Toolbar ---------- */
-  .toolbar{
-    display:flex;
-    gap:10px;
-    margin-top:16px;
-    flex-wrap:wrap;
-    position:relative;
-    z-index:1;
-  }
-  .tool-btn{
-    flex:1 1 auto;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    border:none;
-    background:#fff;
-    border:1.5px solid rgba(38,51,58,.1);
-    color:var(--primary-dark);
-    font-weight:600;
-    font-size:.86rem;
-    padding:12px 14px;
-    border-radius:var(--radius-md);
-    min-height:46px;
-    box-shadow:var(--shadow-card);
-    transition:background .15s ease, transform .12s ease;
-  }
-  .tool-btn:active{transform:scale(.97);}
-  .tool-btn.primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
-  .tool-btn.danger{ color:var(--danger); }
-  .tool-btn svg{flex:none;}
-
-  /* ---------- Modal ---------- */
-  .overlay{
-    position:fixed; inset:0;
-    background:rgba(31,41,46,.42);
-    display:none;
-    align-items:flex-end;
-    justify-content:center;
-    z-index:50;
-    padding:0;
-  }
-  .overlay.open{display:flex;}
-  @media (min-width:640px){
-    .overlay{align-items:center;}
-  }
-
-  .modal{
-    background:#fff;
-    width:100%;
-    max-width:460px;
-    max-height:88vh;
-    overflow-y:auto;
-    border-radius:22px 22px 0 0;
-    padding:20px 20px calc(20px + env(safe-area-inset-bottom));
-    box-shadow:var(--shadow-pop);
-    animation:slideUp .22s ease;
-  }
-  @media (min-width:640px){
-    .modal{border-radius:var(--radius-lg); animation:popIn .18s ease;}
-  }
-  @keyframes slideUp{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
-  @keyframes popIn{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
-
-  .modal-head{
-    display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:14px;
-  }
-  .modal-head h2{
-    font-size:1.1rem;font-weight:600;margin:0;color:var(--primary-dark);
-  }
-  .modal-head span{
-    display:block;font-size:.76rem;color:var(--ink-soft);font-family:'Inter';margin-top:2px;font-weight:500;
-  }
-  .close-x{
-    border:none;background:var(--primary-wash);color:var(--primary-dark);
-    width:34px;height:34px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;flex:none;
-  }
-
-  .field-label{
-    font-size:.78rem;font-weight:600;color:var(--ink-soft);
-    margin:14px 0 6px;
-    display:block;
-  }
-  .search-input, textarea.roster-input, .num-input{
-    width:100%;
-    border:1.5px solid rgba(38,51,58,.14);
-    border-radius:var(--radius-sm);
-    padding:11px 13px;
-    font-size:.92rem;
-    color:var(--ink);
-    background:var(--paper);
-  }
-  .search-input:focus, textarea.roster-input:focus, .num-input:focus{
-    outline:none;border-color:var(--primary-light);
-  }
-  textarea.roster-input{min-height:84px;resize:vertical;line-height:1.5;}
-
-  .pick-list{
-    display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:280px;overflow-y:auto;
-  }
-  .pick-item{
-    display:flex;align-items:center;gap:10px;
-    border:1px solid rgba(38,51,58,.08);
-    border-radius:var(--radius-sm);
-    padding:10px 12px;
-    background:#fff;
-    text-align:left;
-    width:100%;
-  }
-  .pick-item:active{background:var(--primary-wash);}
-  .pick-item .avatar{width:26px;height:26px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.7rem;display:flex;align-items:center;justify-content:center;flex:none;}
-  .pick-item span{font-size:.88rem;font-weight:500;}
-  .empty-note{
-    text-align:center;color:var(--ink-soft);font-size:.84rem;padding:18px 10px;line-height:1.5;
-  }
-
-  .current-occupant{
-    display:flex;align-items:center;gap:10px;
-    background:var(--primary-wash);
-    border-radius:var(--radius-sm);
-    padding:12px;
-    margin-bottom:4px;
-  }
-  .current-occupant .avatar{width:32px;height:32px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.78rem;display:flex;align-items:center;justify-content:center;flex:none;}
-  .current-occupant .who{flex:1;}
-  .current-occupant .who b{display:block;font-size:.9rem;}
-  .current-occupant .who small{color:var(--ink-soft);font-size:.72rem;}
-  .btn-remove-desk{
-    border:none;background:var(--danger-wash);color:var(--danger);
-    font-weight:600;font-size:.78rem;
-    padding:8px 12px;border-radius:9px;
-  }
-
-  .divider-label{
-    font-size:.72rem;color:var(--ink-soft);font-weight:600;
-    text-transform:none;
-    margin:14px 0 6px;
-    display:block;
-  }
-
-  .btn-full{
-    width:100%;border:none;background:var(--primary);color:#fff;
-    font-weight:600;font-size:.9rem;padding:12px;border-radius:var(--radius-sm);
-    margin-top:14px;min-height:46px;
-  }
-  .btn-full:active{background:var(--primary-dark);}
-
-  /* roster list */
-  .roster-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;}
-  .roster-row{
-    display:flex;align-items:center;gap:10px;
-    border:1px solid rgba(38,51,58,.08);
-    border-radius:var(--radius-sm);
-    padding:9px 10px;
-  }
-  .roster-row .avatar{width:26px;height:26px;border-radius:50%;color:#fff;font-family:'Fredoka';font-weight:600;font-size:.68rem;display:flex;align-items:center;justify-content:center;flex:none;}
-  .roster-row .info{flex:1;min-width:0;}
-  .roster-row .info b{display:block;font-size:.86rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .roster-row .info small{color:var(--ink-soft);font-size:.68rem;}
-  .roster-row .info small.free{color:var(--wood);}
-  .roster-row button{
-    border:none;background:transparent;color:var(--danger);
-    width:30px;height:30px;border-radius:8px;flex:none;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .roster-row button:active{background:var(--danger-wash);}
-
-  /* config modal */
-  .config-row{display:flex;gap:12px;}
-  .config-field{flex:1;}
-  .config-total{
-    margin-top:14px;background:var(--primary-wash);border-radius:var(--radius-sm);
-    padding:10px 12px;font-size:.82rem;color:var(--primary-dark);font-weight:600;
-  }
-  .config-warn{
-    margin-top:10px;background:var(--danger-wash);color:var(--danger);
-    border-radius:var(--radius-sm);padding:10px 12px;font-size:.78rem;line-height:1.5;display:none;
-  }
-
-  /* toast */
-  .toast{
-    position:fixed;
-    bottom:18px; left:50%;
-    transform:translateX(-50%) translateY(20px);
-    background:var(--ink);
-    color:#fff;
-    font-size:.82rem;
-    font-weight:500;
-    padding:11px 18px;
-    border-radius:999px;
-    box-shadow:0 8px 20px rgba(0,0,0,.25);
-    opacity:0;
-    pointer-events:none;
-    transition:opacity .22s ease, transform .22s ease;
-    z-index:80;
-    max-width:88vw;
-    text-align:center;
-  }
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-
-  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
-
-  @media (prefers-reduced-motion:reduce){
-    *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
-  }
-</style>
+    .overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .overlay.active { display: flex; }
+    .modal { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
+    
+    .student-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: white; padding: 10px 16px; border-radius: 6px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  </style>
 </head>
 <body>
 
-<div class="app">
-
-  <header class="topbar">
-    <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-      <div>
-        <h1>Mapa da Sala</h1>
-        <span class="sub">Disposição de Carteiras por Turma</span>
-      </div>
+  <header>
+    <div class="controls-group">
+      <span><strong>Turno:</strong></span>
+      <button class="turno-btn active" data-turno="Manhã">Manhã</button>
+      <button class="turno-btn" data-turno="Tarde">Tarde</button>
+      
+      <span style="margin-left: 15px;"><strong>Sala:</strong></span>
+      <select id="selectSala">
+        <!-- Criado dinamicamente no JS -->
+      </select>
     </div>
-    <div class="turno-switch" role="tablist" aria-label="Selecionar turno">
-      <button class="turno-btn active" data-turno="manha" role="tab" aria-selected="true">Manhã</button>
-      <button class="turno-btn" data-turno="tarde" role="tab" aria-selected="false">Tarde</button>
+
+    <div class="controls-group">
+      <span id="syncStatus" class="status-ok">Conectado ao Supabase</span>
+      <button id="btnAlunos">Lista de Alunos</button>
+      <button id="btnConfig" class="btn-secondary">Ajustar Grade</button>
+      <button id="btnLimpar" class="btn-danger">Esvaziar Sala</button>
     </div>
   </header>
 
-  <nav class="salas-tabs" id="salasTabs" aria-label="Selecionar sala"></nav>
+  <div class="quadro">LOUSA / QUADRO</div>
 
-  <main class="stage">
-    <div class="board">
-      <span class="board-label">Lousa</span>
-      <span class="board-sub">mesa do professor · frente da sala</span>
-    </div>
-    <div class="grid-scroll">
-      <div class="desks-grid" id="desksGrid"></div>
-    </div>
-  </main>
+  <div id="gridContainer" class="grid-container"></div>
 
-  <div class="toolbar">
-    <button class="tool-btn primary" id="btnAlunos">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Alunos
-    </button>
-    <button class="tool-btn" id="btnConfig">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-      Configurar sala
-    </button>
-    <button class="tool-btn danger" id="btnLimpar">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-      Limpar sala
-    </button>
+  <!-- Modal Selecionar Aluno p/ Carteira -->
+  <div id="overlayAssign" class="overlay">
+    <div class="modal">
+      <h3 id="assignTitle">Ocupar Carteira</h3>
+      <br>
+      <div id="assignList"></div>
+      <br>
+      <button class="btn-secondary" data-close="overlayAssign">Cancelar</button>
+      <button id="btnUnassign" class="btn-danger" style="display:none;">Desocupar</button>
+    </div>
   </div>
-</div>
 
-<!-- Modal: escolher/trocar aluno de uma carteira -->
-<div class="overlay" id="overlayDesk">
-  <div class="modal">
-    <div class="modal-head">
-      <div>
-        <h2>Carteira</h2>
-        <span id="deskModalSubtitle">Fileira 1 · Coluna 1</span>
+  <!-- Modal Cadastro Alunos -->
+  <div id="overlayStudents" class="overlay">
+    <div class="modal">
+      <h3>Gerenciar Alunos da Turma</h3>
+      <br>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="newStudentInput" placeholder="Nome do Aluno..." style="flex:1; padding:8px; border-radius:4px; border:1px solid #ccc;">
+        <button id="btnAddStudent">Adicionar</button>
       </div>
-      <button class="close-x" data-close="overlayDesk" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
-      </button>
+      <br>
+      <div id="studentsList"></div>
+      <br>
+      <button class="btn-secondary" data-close="overlayStudents">Fechar</button>
     </div>
-
-    <div id="currentOccupantBlock"></div>
-
-    <span class="divider-label" id="pickDividerLabel">Selecionar aluno</span>
-    <input type="text" class="search-input" id="deskSearch" placeholder="Buscar aluno...">
-    <div class="pick-list" id="deskPickList"></div>
   </div>
-</div>
 
-<!-- Modal: gerenciar alunos da turma -->
-<div class="overlay" id="overlayStudents">
-  <div class="modal">
-    <div class="modal-head">
-      <div>
-        <h2>Alunos da turma</h2>
-        <span id="studentsModalSubtitle">Manhã · Sala 1</span>
-      </div>
-      <button class="close-x" data-close="overlayStudents" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
-      </button>
+  <!-- Modal Configuração da Grade -->
+  <div id="overlayConfig" class="overlay">
+    <div class="modal">
+      <h3>Configurar Grade de Carteiras</h3>
+      <br>
+      <label>Fileiras (Linhas):</label>
+      <input type="number" id="rowsInput" min="1" max="10" style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 12px;">
+      
+      <label>Colunas:</label>
+      <input type="number" id="colsInput" min="1" max="10" style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 12px;">
+      
+      <p id="configTotal" style="font-weight: bold;"></p>
+      <p id="configWarn" style="color: red; display: none; font-size: 0.85rem; margin-top: 5px;"></p>
+      <br>
+      <button id="btnSaveConfig">Salvar Configuração</button>
+      <button class="btn-secondary" data-close="overlayConfig">Cancelar</button>
     </div>
-
-    <label class="field-label" for="rosterTextarea">Adicionar alunos (um nome por linha)</label>
-    <textarea class="roster-input" id="rosterTextarea" placeholder="Ana Silva&#10;Bruno Costa&#10;Carla Souza"></textarea>
-    <button class="btn-full" id="btnAddRoster">Adicionar à lista</button>
-
-    <span class="divider-label">Lista atual (<span id="rosterCount">0</span>)</span>
-    <div class="roster-list" id="rosterList"></div>
   </div>
-</div>
 
-<!-- Modal: configurar tamanho da sala -->
-<div class="overlay" id="overlayConfig">
-  <div class="modal">
-    <div class="modal-head">
-      <div>
-        <h2>Configurar sala</h2>
-        <span id="configModalSubtitle">Manhã · Sala 1</span>
-      </div>
-      <button class="close-x" data-close="overlayConfig" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
-      </button>
-    </div>
+  <div id="toast" class="toast">Ação concluída com sucesso!</div>
 
-    <div class="config-row">
-      <div class="config-field">
-        <label class="field-label" for="rowsInput">Fileiras</label>
-        <input type="number" class="num-input" id="rowsInput" min="1" max="10" value="6">
-      </div>
-      <div class="config-field">
-        <label class="field-label" for="colsInput">Colunas (Mesas)</label>
-        <input type="number" class="num-input" id="colsInput" min="1" max="10" value="7">
-      </div>
-    </div>
-    <div class="config-total" id="configTotal">Total: 42 carteiras</div>
-    <div class="config-warn" id="configWarn"></div>
-    <button class="btn-full" id="btnSaveConfig">Salvar configuração</button>
-  </div>
-</div>
+  <script>
+    // ==========================================
+    // 1. CONFIGURAÇÃO DO SUPABASE
+    // ==========================================
+    const SUPABASE_URL = "const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";";
+    const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
 
-<div class="toast" id="toast"></div>
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const ROW_ID = "mapa_global";
 
-<script>
-(function(){
-  "use strict";
+    // Estrutura Padrão de Dados
+    function createInitialState() {
+      var state = { current: { turno: "Manhã", sala: 1 }, turnos: { "Manhã": {}, "Tarde": {} } };
+      ["Manhã", "Tarde"].forEach(function(t) {
+        for (var i = 1; i <= 10; i++) {
+          state.turnos[t][i] = { rows: 5, cols: 6, roster: [], desks: {} };
+        }
+      });
+      return state;
+    }
 
-  var STORAGE_KEY = "mapaSalaAula_v1";
-  var TURNOS = ["manha","tarde"];
-  var NUM_SALAS = 10;
+    var state = createInitialState();
+    var selectedDeskKey = null;
 
-  var AVATAR_COLORS = ["#33587F","#5B8A6F","#B0524A","#C98A3F","#6E5B9C","#4A8B94","#A5644B","#5C7A3C"];
-
-  /* ---------- Estado ---------- */
-  var state = {
-    current: { turno:"manha", sala:1 },
-    data: {}
-  };
-
-  function defaultSala(){
-    return { rows:6, cols:7, roster:[], desks:{} };
-  }
-
-  function clampInt(val, min, max){
-    var n = parseInt(val, 10);
-    if(isNaN(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function loadState(){
-    try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        var parsed = JSON.parse(raw);
-        if(parsed && parsed.data) state.data = parsed.data;
-        if(parsed && parsed.current) state.current = parsed.current;
+    function updateStatus(syncing) {
+      var el = document.getElementById("syncStatus");
+      if (syncing) {
+        el.textContent = "Sincronizando...";
+        el.className = "status-syncing";
+      } else {
+        el.textContent = "Sincronizado na Nuvem";
+        el.className = "status-ok";
       }
-    }catch(e){ /* localStorage indisponível */ }
+    }
 
-    TURNOS.forEach(function(turno){
-      if(!state.data[turno]) state.data[turno] = {};
-      for(var i=1;i<=NUM_SALAS;i++){
-        if(!state.data[turno][i]) state.data[turno][i] = defaultSala();
+    function showToast(msg) {
+      var t = document.getElementById("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(function() { t.style.display = "none"; }, 2500);
+    }
+
+    function currentSala() {
+      return state.turnos[state.current.turno][state.current.sala];
+    }
+
+    // ==========================================
+    // 2. SINCRONIZAÇÃO COM SUPABASE
+    // ==========================================
+    async function saveState() {
+      updateStatus(true);
+      try {
+        await supabase
+          .from("mapa_salas")
+          .upsert({ id: ROW_ID, data: state, updated_at: new Date() });
+      } catch (err) {
+        console.error("Erro ao salvar no Supabase:", err);
+      } finally {
+        updateStatus(false);
+      }
+    }
+
+    async function loadState() {
+      updateStatus(true);
+      try {
+        let { data, error } = await supabase
+          .from("mapa_salas")
+          .select("data")
+          .eq("id", ROW_ID)
+          .single();
+
+        if (data && data.data) {
+          state = data.data;
+        } else {
+          await saveState(); // Cria a primeira gravação na nuvem caso não exista
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do Supabase:", err);
+      } finally {
+        updateStatus(false);
+        renderAll();
+      }
+    }
+
+    // Escutar alterações em tempo real de outros dispositivos
+    supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: 'id=eq.' + ROW_ID }, payload => {
+        if (payload.new && payload.new.data) {
+          state = payload.new.data;
+          renderAll();
+        }
+      })
+      .subscribe();
+
+    // ==========================================
+    // 3. RENDERIZAÇÃO DA INTERFACE
+    // ==========================================
+    function renderSelectSala() {
+      var sel = document.getElementById("selectSala");
+      sel.innerHTML = "";
+      for (var i = 1; i <= 10; i++) {
+        var opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = "Sala " + i;
+        if (i == state.current.sala) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+
+    function renderGrid() {
+      var container = document.getElementById("gridContainer");
+      var sala = currentSala();
+      
+      container.style.gridTemplateColumns = "repeat(" + sala.cols + ", minmax(100px, 1fr))";
+      container.innerHTML = "";
+
+      for (var r = 0; r < sala.rows; r++) {
+        for (var c = 0; c < sala.cols; c++) {
+          (function(row, col) {
+            var key = row + "-" + col;
+            var studentName = sala.desks[key];
+            
+            var desk = document.createElement("div");
+            desk.className = "desk" + (studentName ? " occupied" : "");
+            
+            var posSpan = document.createElement("span");
+            posSpan.className = "pos";
+            posSpan.textContent = (row + 1) + "x" + (col + 1);
+            desk.appendChild(posSpan);
+
+            var nameSpan = document.createElement("span");
+            nameSpan.textContent = studentName || "Livre";
+            desk.appendChild(nameSpan);
+
+            desk.addEventListener("click", function() { openAssignModal(key); });
+            container.appendChild(desk);
+          })(r, c);
+        }
+      }
+    }
+
+    function renderAll() {
+      document.querySelectorAll(".turno-btn").forEach(function(btn) {
+        btn.classList.toggle("active", btn.dataset.turno === state.current.turno);
+      });
+      renderSelectSala();
+      renderGrid();
+    }
+
+    // ==========================================
+    // 4. MODAIS E AÇÕES
+    // ==========================================
+    function openOverlay(id) { document.getElementById(id).classList.add("active"); }
+    function closeOverlay(id) { document.getElementById(id).classList.remove("active"); }
+
+    function openAssignModal(key) {
+      selectedDeskKey = key;
+      var sala = currentSala();
+      var currentStudent = sala.desks[key];
+      
+      document.getElementById("assignTitle").textContent = "Carteira " + key + (currentStudent ? " (Atual: " + currentStudent + ")" : "");
+      
+      var list = document.getElementById("assignList");
+      list.innerHTML = "";
+
+      // Filtra os alunos que já estão alocados em outras carteiras
+      var assignedStudents = Object.values(sala.desks);
+      var available = sala.roster.filter(function(st) {
+        return st === currentStudent || !assignedStudents.includes(st);
+      });
+
+      if (available.length === 0) {
+        list.innerHTML = "<p style='color:#6b7280;'>Nenhum aluno disponível na lista de cadastro.</p>";
+      } else {
+        available.forEach(function(st) {
+          var btn = document.createElement("button");
+          btn.textContent = st;
+          btn.style.cssText = "display:block; width:100%; margin-bottom:6px; text-align:left; background:#f3f4f6; color:#1f2937;";
+          btn.addEventListener("click", function() {
+            sala.desks[key] = st;
+            saveState();
+            renderGrid();
+            closeOverlay("overlayAssign");
+          });
+          list.appendChild(btn);
+        });
+      }
+
+      var btnUnassign = document.getElementById("btnUnassign");
+      btnUnassign.style.display = currentStudent ? "inline-block" : "none";
+      openOverlay("overlayAssign");
+    }
+
+    document.getElementById("btnUnassign").addEventListener("click", function() {
+      if (selectedDeskKey && currentSala().desks[selectedDeskKey]) {
+        delete currentSala().desks[selectedDeskKey];
+        saveState();
+        renderGrid();
+        closeOverlay("overlayAssign");
       }
     });
-  }
 
-  function saveState(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
-  }
+    // Lista de Alunos
+    function openStudentsModal() {
+      renderStudentsList();
+      openOverlay("overlayStudents");
+    }
 
-  function currentSala(){
-    return state.data[state.current.turno][state.current.sala];
-  }
+    function renderStudentsList() {
+      var list = document.getElementById("studentsList");
+      var sala = currentSala();
+      list.innerHTML = "";
 
-  /* ---------- Utilidades ---------- */
-  function initials(name){
-    var parts = name.trim().split(/\s+/);
-    var a = parts[0] ? parts[0][0] : "";
-    var b = parts.length>1 ? parts[parts.length-1][0] : "";
-    return (a+b).toUpperCase();
-  }
-  function colorFor(name){
-    var hash = 0;
-    for(var i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-  }
-  function assignedNames(sala){
-    var set = {};
-    Object.keys(sala.desks).forEach(function(k){ set[sala.desks[k]] = true; });
-    return set;
-  }
-  function unassignedRoster(sala){
-    var assigned = assignedNames(sala);
-    return sala.roster.filter(function(n){ return !assigned[n]; });
-  }
+      if(sala.roster.length === 0) {
+        list.innerHTML = "<p style='color:#6b7280;'>Nenhum aluno cadastrado para esta turma.</p>";
+        return;
+      }
 
-  var toastTimer;
-  function showToast(msg){
-    var t = document.getElementById("toast");
-    t.textContent = msg;
-    t.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
-  }
+      sala.roster.forEach(function(st, idx) {
+        var item = document.createElement("div");
+        item.className = "student-item";
+        item.innerHTML = "<span>" + st + "</span>";
+        
+        var delBtn = document.createElement("button");
+        delBtn.className = "btn-danger";
+        delBtn.style.padding = "4px 8px";
+        delBtn.textContent = "Remover";
+        delBtn.addEventListener("click", function() {
+          sala.roster.splice(idx, 1);
+          // Desocupa se estiver em alguma carteira
+          Object.keys(sala.desks).forEach(function(k) {
+            if (sala.desks[k] === st) delete sala.desks[k];
+          });
+          saveState();
+          renderStudentsList();
+          renderGrid();
+        });
 
-  function openOverlay(id){
-    document.getElementById(id).classList.add("open");
-  }
-  function closeOverlay(id){
-    document.getElementById(id).classList.remove("open");
-  }
+        item.appendChild(delBtn);
+        list.appendChild(item);
+      });
+    }
 
-  /* ---------- Render: topbar / tabs ---------- */
-  function renderTurnoButtons(){
-    document.querySelectorAll(".turno-btn").forEach(function(btn){
-      var active = btn.dataset.turno === state.current.turno;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-selected", active ? "true":"false");
+    document.getElementById("btnAddStudent").addEventListener("click", function() {
+      var inp = document.getElementById("newStudentInput");
+      var val = inp.value.trim();
+      if (val) {
+        var sala = currentSala();
+        if(!sala.roster.includes(val)) {
+          sala.roster.push(val);
+          inp.value = "";
+          saveState();
+          renderStudentsList();
+        } else {
+          alert("Este aluno já está cadastrado.");
+        }
+      }
     });
-  }
 
-  function renderSalasTabs(){
-    var nav = document.getElementById("salasTabs");
-    nav.innerHTML = "";
-    for(var i=1;i<=NUM_SALAS;i++){
-      var chip = document.createElement("button");
-      chip.className = "sala-chip" + (i===state.current.sala ? " active":"");
-      chip.textContent = "Sala " + i;
-      chip.dataset.sala = i;
-      chip.addEventListener("click", function(){
-        state.current.sala = parseInt(this.dataset.sala,10);
+    // Configuração da Grade
+    function openConfigModal() {
+      var sala = currentSala();
+      document.getElementById("rowsInput").value = sala.rows;
+      document.getElementById("colsInput").value = sala.cols;
+      updateConfigPreview();
+      openOverlay("overlayConfig");
+    }
+
+    function clampInt(val, min, max) {
+      var n = parseInt(val, 10);
+      if (isNaN(n)) return min;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function updateConfigPreview() {
+      var rows = clampInt(document.getElementById("rowsInput").value, 1, 10);
+      var cols = clampInt(document.getElementById("colsInput").value, 1, 10);
+      document.getElementById("configTotal").textContent = "Total: " + (rows * cols) + " carteiras";
+    }
+
+    document.getElementById("btnSaveConfig").addEventListener("click", function() {
+      var sala = currentSala();
+      var newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
+      var newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
+
+      sala.rows = newRows;
+      sala.cols = newCols;
+
+      // Remove alunos de carteiras excedentes
+      Object.keys(sala.desks).forEach(function(k) {
+        var p = k.split("-");
+        if (parseInt(p[0], 10) >= newRows || parseInt(p[1], 10) >= newCols) {
+          delete sala.desks[k];
+        }
+      });
+
+      saveState();
+      renderGrid();
+      closeOverlay("overlayConfig");
+      showToast("Configurações atualizadas");
+    });
+
+    // Eventos Gerais
+    document.getElementById("selectSala").addEventListener("change", function(e) {
+      state.current.sala = parseInt(e.target.value, 10);
+      saveState();
+      renderGrid();
+    });
+
+    document.querySelectorAll(".turno-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        state.current.turno = this.dataset.turno;
         saveState();
         renderAll();
       });
-      nav.appendChild(chip);
-    }
-  }
+    });
 
-  /* ---------- Render: grid de carteiras ---------- */
-  function renderGrid(){
-    var sala = currentSala();
-    var grid = document.getElementById("desksGrid");
-    grid.style.setProperty("--cols", sala.cols);
-    grid.innerHTML = "";
-
-    for(var r=0;r<sala.rows;r++){
-      for(var c=0;c<sala.cols;c++){
-        var key = r+"-"+c;
-        var name = sala.desks[key];
-        var desk = document.createElement("button");
-        desk.className = "desk" + (name ? " occupied":"");
-        desk.dataset.key = key;
-        desk.setAttribute("aria-label", name ? ("Carteira ocupada por "+name) : ("Carteira vazia, fileira "+(r+1)+", coluna "+(c+1)));
-
-        var idxSpan = document.createElement("span");
-        idxSpan.className = "idx";
-        idxSpan.textContent = (r+1)+"·"+(c+1);
-        desk.appendChild(idxSpan);
-
-        if(name){
-          var av = document.createElement("div");
-          av.className = "avatar";
-          av.style.background = colorFor(name);
-          av.textContent = initials(name);
-          var nm = document.createElement("div");
-          nm.className = "name";
-          nm.textContent = name;
-          desk.appendChild(av);
-          desk.appendChild(nm);
-        }else{
-          var plus = document.createElement("span");
-          plus.className = "plus";
-          plus.textContent = "+";
-          desk.appendChild(plus);
-        }
-
-        desk.addEventListener("click", function(){ openDeskModal(this.dataset.key); });
-        grid.appendChild(desk);
-      }
-    }
-  }
-
-  function renderAll(){
-    renderTurnoButtons();
-    renderSalasTabs();
-    renderGrid();
-  }
-
-  /* ---------- Modal: carteira ---------- */
-  var activeDeskKey = null;
-
-  function openDeskModal(key){
-    activeDeskKey = key;
-    var sala = currentSala();
-    var parts = key.split("-");
-    var r = parseInt(parts[0],10)+1, c = parseInt(parts[1],10)+1;
-    document.getElementById("deskModalSubtitle").textContent = "Fileira "+r+" · Coluna "+c;
-
-    var occupantBlock = document.getElementById("currentOccupantBlock");
-    occupantBlock.innerHTML = "";
-    var currentName = sala.desks[key];
-
-    if(currentName){
-      var wrap = document.createElement("div");
-      wrap.className = "current-occupant";
-      var av = document.createElement("div");
-      av.className="avatar"; av.style.background=colorFor(currentName); av.textContent=initials(currentName);
-      var who = document.createElement("div");
-      who.className="who";
-      who.innerHTML = "<b></b><small>Sentado(a) aqui</small>";
-      who.querySelector("b").textContent = currentName;
-      var rm = document.createElement("button");
-      rm.className="btn-remove-desk";
-      rm.textContent="Remover";
-      rm.addEventListener("click", function(){
-        delete sala.desks[key];
+    document.getElementById("btnAlunos").addEventListener("click", openStudentsModal);
+    document.getElementById("btnConfig").addEventListener("click", openConfigModal);
+    document.getElementById("btnLimpar").addEventListener("click", function() {
+      if (confirm("Deseja realmente esvaziar todas as carteiras desta sala?")) {
+        currentSala().desks = {};
         saveState();
         renderGrid();
-        closeOverlay("overlayDesk");
-        showToast(currentName + " foi removido(a) da carteira");
-      });
-      wrap.appendChild(av); wrap.appendChild(who); wrap.appendChild(rm);
-      occupantBlock.appendChild(wrap);
-      document.getElementById("pickDividerLabel").textContent = "Trocar por";
-    }else{
-      document.getElementById("pickDividerLabel").textContent = "Selecionar aluno";
-    }
-
-    document.getElementById("deskSearch").value = "";
-    renderPickList("");
-    openOverlay("overlayDesk");
-    setTimeout(function(){ document.getElementById("deskSearch").focus(); }, 150);
-  }
-
-  function renderPickList(filter){
-    var sala = currentSala();
-    var list = document.getElementById("deskPickList");
-    list.innerHTML = "";
-    var pool = unassignedRoster(sala).filter(function(n){
-      return n.toLowerCase().indexOf(filter.toLowerCase()) !== -1;
-    });
-
-    if(pool.length === 0){
-      var empty = document.createElement("div");
-      empty.className = "empty-note";
-      empty.textContent = sala.roster.length === 0
-        ? "Nenhum aluno cadastrado ainda. Toque em \"Alunos\" para adicionar a turma."
-        : "Todos os alunos já estão em uma carteira, ou nenhum nome corresponde à busca.";
-      list.appendChild(empty);
-      return;
-    }
-
-    pool.forEach(function(name){
-      var item = document.createElement("button");
-      item.className = "pick-item";
-      var av = document.createElement("div");
-      av.className="avatar"; av.style.background=colorFor(name); av.textContent=initials(name);
-      var span = document.createElement("span");
-      span.textContent = name;
-      item.appendChild(av); item.appendChild(span);
-      item.addEventListener("click", function(){
-        sala.desks[activeDeskKey] = name;
-        saveState();
-        renderGrid();
-        closeOverlay("overlayDesk");
-        showToast(name + " foi alocado(a) na carteira");
-      });
-      list.appendChild(item);
-    });
-  }
-
-  document.getElementById("deskSearch").addEventListener("input", function(){
-    renderPickList(this.value);
-  });
-
-  /* ---------- Modal: alunos ---------- */
-  function openStudentsModal(){
-    document.getElementById("studentsModalSubtitle").textContent =
-      (state.current.turno==="manha"?"Manhã":"Tarde") + " · Sala " + state.current.sala;
-    document.getElementById("rosterTextarea").value = "";
-    renderRosterList();
-    openOverlay("overlayStudents");
-  }
-
-  function renderRosterList(){
-    var sala = currentSala();
-    var listEl = document.getElementById("rosterList");
-    document.getElementById("rosterCount").textContent = sala.roster.length;
-    listEl.innerHTML = "";
-
-    if(sala.roster.length === 0){
-      var empty = document.createElement("div");
-      empty.className = "empty-note";
-      empty.textContent = "Ainda não há alunos nesta turma. Use o campo acima para adicionar.";
-      listEl.appendChild(empty);
-      return;
-    }
-
-    var assigned = {};
-    Object.keys(sala.desks).forEach(function(k){
-      var n = sala.desks[k];
-      var p = k.split("-");
-      assigned[n] = "Fileira "+(parseInt(p[0],10)+1)+" · Coluna "+(parseInt(p[1],10)+1);
-    });
-
-    sala.roster.slice().sort(function(a,b){return a.localeCompare(b,'pt-BR');}).forEach(function(name){
-      var row = document.createElement("div");
-      row.className = "roster-row";
-      var av = document.createElement("div");
-      av.className="avatar"; av.style.background=colorFor(name); av.textContent=initials(name);
-      var info = document.createElement("div");
-      info.className="info";
-      var loc = assigned[name];
-      info.innerHTML = "<b></b><small class='"+(loc?"":"free")+"'></small>";
-      info.querySelector("b").textContent = name;
-      info.querySelector("small").textContent = loc ? loc : "Sem carteira";
-      var del = document.createElement("button");
-      del.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
-      del.setAttribute("aria-label","Remover "+name);
-      del.addEventListener("click", function(){
-        removeStudent(name);
-      });
-      row.appendChild(av); row.appendChild(info); row.appendChild(del);
-      listEl.appendChild(row);
-    });
-  }
-
-  function removeStudent(name){
-    var sala = currentSala();
-    sala.roster = sala.roster.filter(function(n){ return n!==name; });
-    Object.keys(sala.desks).forEach(function(k){
-      if(sala.desks[k] === name) delete sala.desks[k];
-    });
-    saveState();
-    renderRosterList();
-    renderGrid();
-    showToast(name + " foi removido(a) da turma");
-  }
-
-  document.getElementById("btnAddRoster").addEventListener("click", function(){
-    var sala = currentSala();
-    var raw = document.getElementById("rosterTextarea").value;
-    var names = raw.split("\n").map(function(s){return s.trim();}).filter(Boolean);
-    var existing = {};
-    sala.roster.forEach(function(n){ existing[n.toLowerCase()] = true; });
-    var added = 0;
-    names.forEach(function(n){
-      if(!existing[n.toLowerCase()]){
-        sala.roster.push(n);
-        existing[n.toLowerCase()] = true;
-        added++;
+        showToast("Carteiras desocupadas");
       }
     });
-    if(added>0){
-      saveState();
-      document.getElementById("rosterTextarea").value = "";
-      renderRosterList();
-      showToast(added===1 ? "1 aluno adicionado" : added+" alunos adicionados");
-    }
-  });
 
-  /* ---------- Modal: configurar sala ---------- */
-  function openConfigModal(){
-    var sala = currentSala();
-    document.getElementById("configModalSubtitle").textContent =
-      (state.current.turno==="manha"?"Manhã":"Tarde") + " · Sala " + state.current.sala;
-    document.getElementById("rowsInput").value = sala.rows;
-    document.getElementById("colsInput").value = sala.cols;
-    updateConfigPreview();
-    openOverlay("overlayConfig");
-  }
-
-  function updateConfigPreview(){
-    var rows = clampInt(document.getElementById("rowsInput").value,1,10);
-    var cols = clampInt(document.getElementById("colsInput").value,1,10);
-    document.getElementById("configTotal").textContent = "Total: " + (rows*cols) + " carteiras";
-
-    var sala = currentSala();
-    var displaced = [];
-    Object.keys(sala.desks).forEach(function(k){
-      var p = k.split("-");
-      var r = parseInt(p[0],10), c = parseInt(p[1],10);
-      if(r>=rows || c>=cols) displaced.push(sala.desks[k]);
-    });
-    var warn = document.getElementById("configWarn");
-    if(displaced.length>0){
-      warn.style.display = "block";
-      warn.textContent = "Atenção: alterar para este tamanho removerá " + displaced.length + " aluno(s) posicionados fora da nova área (" + displaced.join(", ") + ").";
-    }else{
-      warn.style.display = "none";
-    }
-  }
-
-  document.getElementById("rowsInput").addEventListener("input", updateConfigPreview);
-  document.getElementById("colsInput").addEventListener("input", updateConfigPreview);
-
-  document.getElementById("btnSaveConfig").addEventListener("click", function(){
-    var sala = currentSala();
-    var newRows = clampInt(document.getElementById("rowsInput").value,1,10);
-    var newCols = clampInt(document.getElementById("colsInput").value,1,10);
-
-    sala.rows = newRows;
-    sala.cols = newCols;
-
-    Object.keys(sala.desks).forEach(function(k){
-      var p = k.split("-");
-      var r = parseInt(p[0],10), c = parseInt(p[1],10);
-      if(r>=newRows || c>=newCols) delete sala.desks[k];
+    document.querySelectorAll("[data-close]").forEach(function(btn) {
+      btn.addEventListener("click", function() { closeOverlay(this.dataset.close); });
     });
 
-    saveState();
-    renderGrid();
-    closeOverlay("overlayConfig");
-    showToast("Layout da sala atualizado");
-  });
-
-  /* ---------- Eventos Gerais ---------- */
-  document.querySelectorAll(".turno-btn").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      state.current.turno = this.dataset.turno;
-      saveState();
-      renderAll();
-    });
-  });
-
-  document.getElementById("btnAlunos").addEventListener("click", openStudentsModal);
-  document.getElementById("btnConfig").addEventListener("click", openConfigModal);
-
-  document.getElementById("btnLimpar").addEventListener("click", function(){
-    var sala = currentSala();
-    if(Object.keys(sala.desks).length===0){
-      showToast("A sala já está vazia");
-      return;
-    }
-    if(confirm("Tem certeza que deseja remover todos os alunos das carteiras desta sala?")){
-      sala.desks = {};
-      saveState();
-      renderGrid();
-      showToast("Todas as carteiras foram desocupadas");
-    }
-  });
-
-  document.querySelectorAll("[data-close]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      closeOverlay(this.dataset.close);
-    });
-  });
-
-  document.querySelectorAll(".overlay").forEach(function(ov){
-    ov.addEventListener("click", function(e){
-      if(e.target === this) closeOverlay(this.id);
-    });
-  });
-
-  /* ---------- Inicialização ---------- */
-  loadState();
-  renderAll();
-
-})();
-</script>
+    // Iniciar aplicação
+    loadState();
+  </script>
 </body>
 </html>
