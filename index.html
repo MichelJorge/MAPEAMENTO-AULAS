@@ -123,12 +123,14 @@
     const SUPABASE_URL = "https://hlmpfretquznqhmecuhkm.supabase.com";
     const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
 
-    let supabase = null;
+    // Não use o nome "supabase" para o cliente local: a página/host pode
+    // já possuir uma declaração global com esse identificador.
+    let supabaseClient = null;
     let useFallbackMode = false;
 
     try {
       if (window.supabase && window.supabase.createClient) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log("✅ Supabase inicializado com sucesso!");
       } else {
         throw new Error("SDK do Supabase não carregado");
@@ -183,11 +185,11 @@
 
     async function saveState() {
       localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
-      if (useFallbackMode || !supabase) return;
+      if (useFallbackMode || !supabaseClient) return;
       
       updateStatus(true);
       try {
-        const { error } = await supabase.from("mapa_salas").upsert({ id: ROW_ID, data: state, updated_at: new Date() });
+        const { error } = await supabaseClient.from("mapa_salas").upsert({ id: ROW_ID, data: state, updated_at: new Date() });
         if (error && error.code === "42P01") ativarModoLocal();
       } catch (err) {
         console.warn("⚠️ Falha de rede:", err);
@@ -209,14 +211,14 @@
         try { state = JSON.parse(backupLocal); } 
         catch (e) { state = createInitialState(); }
       }
-      if (!supabase) {
+      if (!supabaseClient) {
         ativarModoLocal();
         renderAll();
         return;
       }
       updateStatus(true, "Carregando...");
       try {
-        const { data, error } = await supabase.from("mapa_salas").select("data").eq("id", ROW_ID).single();
+        const { data, error } = await supabaseClient.from("mapa_salas").select("data").eq("id", ROW_ID).single();
         if (error) {
           if (error.code === "PGRST116") { await saveState(); }
           else if (error.code === "42P01") { ativarModoLocal(); }
@@ -233,9 +235,9 @@
     }
 
     function inscreverMudancas() {
-      if (useFallbackMode || !supabase) return;
+      if (useFallbackMode || !supabaseClient) return;
       try {
-        supabase.channel('mapa_mudancas')
+        supabaseClient.channel('mapa_mudancas')
           .on('postgres_changes', { 
             event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` 
           }, payload => {
