@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mapa de Sala de Aula - Supabase</title>
-  <!-- SDK do Supabase via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -51,7 +50,6 @@
     .overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
     .overlay.active { display: flex; }
     .modal { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
-    
     .student-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
     .toast { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: white; padding: 10px 16px; border-radius: 6px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000; }
     .toast.error { background: #ef4444; }
@@ -65,11 +63,8 @@
       <span><strong>Turno:</strong></span>
       <button class="turno-btn active" data-turno="Manhã">Manhã</button>
       <button class="turno-btn" data-turno="Tarde">Tarde</button>
-      
       <span style="margin-left: 15px;"><strong>Sala:</strong></span>
-      <select id="selectSala">
-        <!-- Criado dinamicamente no JS -->
-      </select>
+      <select id="selectSala"></select>
     </div>
     <div class="controls-group">
       <span id="syncStatus" class="status-syncing">Iniciando...</span>
@@ -80,8 +75,7 @@
   </header>
   <div class="quadro">LOUSA / QUADRO</div>
   <div id="gridContainer" class="grid-container"></div>
-  
-  <!-- Modal Selecionar Aluno p/ Carteira -->
+
   <div id="overlayAssign" class="overlay">
     <div class="modal">
       <h3 id="assignTitle">Ocupar Carteira</h3>
@@ -92,8 +86,7 @@
       <button id="btnUnassign" class="btn-danger" style="display:none;">Desocupar</button>
     </div>
   </div>
-  
-  <!-- Modal Cadastro Alunos -->
+
   <div id="overlayStudents" class="overlay">
     <div class="modal">
       <h3>Gerenciar Alunos da Turma</h3>
@@ -108,39 +101,31 @@
       <button class="btn-secondary" data-close="overlayStudents">Fechar</button>
     </div>
   </div>
-  
-  <!-- Modal Configuração da Grade -->
+
   <div id="overlayConfig" class="overlay">
     <div class="modal">
       <h3>Configurar Grade de Carteiras</h3>
       <br>
       <label>Fileiras (Linhas):</label>
       <input type="number" id="rowsInput" min="1" max="10">
-      
       <label>Colunas:</label>
       <input type="number" id="colsInput" min="1" max="10">
-      
       <p id="configTotal" style="font-weight: bold; margin-top: 8px;"></p>
-      <p id="configWarn" style="color: red; display: none; font-size: 0.85rem; margin-top: 5px;"></p>
       <br>
       <button id="btnSaveConfig">Salvar Configuração</button>
       <button class="btn-secondary" data-close="overlayConfig">Cancelar</button>
     </div>
   </div>
-  
+
   <div id="toast" class="toast">Ação concluída com sucesso!</div>
+
   <script>
-    // ==========================================
-    // ⚙️ CONFIGURAÇÃO DO SUPABASE
-    // ==========================================
     const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
-    
-    // Inicializar cliente
+
     let supabase;
     try {
-      const { createClient } = window.supabase;
-      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       console.log("✅ Supabase inicializado");
     } catch (e) {
       console.error("❌ Erro ao inicializar Supabase:", e);
@@ -148,23 +133,14 @@
     }
     const ROW_ID = "mapa_global";
 
-    // ==========================================
-    // 📦 ESTRUTURA DE DADOS
-    // ==========================================
     function createInitialState() {
       const state = { 
         current: { turno: "Manhã", sala: 1 }, 
         turnos: { "Manhã": {}, "Tarde": {} } 
       };
-      
       ["Manhã", "Tarde"].forEach(tipoTurno => {
         for (let numeroSala = 1; numeroSala <= 10; numeroSala++) {
-          state.turnos[tipoTurno][numeroSala] = {
-            rows: 5,
-            cols: 6,
-            roster: [],
-            desks: {}
-          };
+          state.turnos[tipoTurno][numeroSala] = { rows: 5, cols: 6, roster: [], desks: {} };
         }
       });
       return state;
@@ -173,9 +149,6 @@
     let selectedDeskKey = null;
     let useFallbackMode = false;
 
-    // ==========================================
-    // 🎯 FUNÇÕES DE STATUS E AVISOS
-    // ==========================================
     function updateStatus(sincronizando, mensagem = null) {
       const el = document.getElementById("syncStatus");
       if (mensagem) {
@@ -200,24 +173,15 @@
       return state.turnos[state.current.turno][state.current.sala];
     }
 
-    // ==========================================
-    // 💾 SINCRONIZAÇÃO COM SUPABASE
-    // ==========================================
     async function saveState() {
       localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
       if (useFallbackMode || !supabase) return;
-      
       updateStatus(true);
       try {
-        const { error } = await supabase
-          .from("mapa_salas")
-          .upsert({ id: ROW_ID, data: state, updated_at: new Date() });
-        if (error) {
-          console.warn("⚠️ Erro ao salvar no Supabase:", error);
-          if (error.code === "42P01") ativarModoLocal();
-        }
+        const { error } = await supabase.from("mapa_salas").upsert({ id: ROW_ID, data: state, updated_at: new Date() });
+        if (error && error.code === "42P01") ativarModoLocal();
       } catch (err) {
-        console.warn("⚠️ Falha de rede ao salvar:", err);
+        console.warn("⚠️ Falha de rede:", err);
       } finally {
         updateStatus(false);
       }
@@ -230,37 +194,19 @@
     }
     async function loadState() {
       const backupLocal = localStorage.getItem("mapa_salas_backup");
-      if (backupLocal) {
-        try { state = JSON.parse(backupLocal); } 
-        catch (e) { state = createInitialState(); }
-      }
-      if (!supabase) {
-        ativarModoLocal();
-        renderAll();
-        return;
-      }
+      if (backupLocal) try { state = JSON.parse(backupLocal); } catch (e) { state = createInitialState(); }
+      if (!supabase) { ativarModoLocal(); renderAll(); return; }
       updateStatus(true, "Carregando...");
       try {
-        const { data, error } = await supabase
-          .from("mapa_salas")
-          .select("data")
-          .eq("id", ROW_ID)
-          .single();
+        const { data, error } = await supabase.from("mapa_salas").select("data").eq("id", ROW_ID).single();
         if (error) {
-          if (error.code === "PGRST116") {
-            console.log("📝 Criando registro inicial...");
-            await saveState();
-          } else if (error.code === "42P01") {
-            ativarModoLocal();
-          } else {
-            console.warn("Erro ao carregar:", error);
-          }
+          if (error.code === "PGRST116") { await saveState(); }
+          else if (error.code === "42P01") { ativarModoLocal(); }
         } else if (data?.data) {
           state = data.data;
           localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
         }
       } catch (err) {
-        console.warn("⚠️ Rede indisponível, usando dados locais:", err);
         ativarModoLocal();
       } finally {
         updateStatus(false);
@@ -270,27 +216,17 @@
     function inscreverMudancas() {
       if (useFallbackMode || !supabase) return;
       try {
-        supabase
-          .channel('mapa_mudancas')
-          .on('postgres_changes', { 
-            event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` 
-          }, payload => {
-            if (payload.new?.data) {
-              state = payload.new.data;
-              localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
-              renderAll();
-              showToast("🔄 Atualizado da nuvem");
-            }
-          })
-          .subscribe();
-      } catch (e) {
-        console.log("📡 Reescuta adiada:", e);
-      }
+        supabase.channel('mapa_mudancas').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` }, payload => {
+          if (payload.new?.data) {
+            state = payload.new.data;
+            localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
+            renderAll();
+            showToast("🔄 Atualizado da nuvem");
+          }
+        }).subscribe();
+      } catch (e) {}
     }
 
-    // ==========================================
-    // 🎨 RENDERIZAÇÃO DA INTERFACE
-    // ==========================================
     function renderSelectSala() {
       const sel = document.getElementById("selectSala");
       sel.innerHTML = "";
@@ -305,32 +241,20 @@
     function renderGrid() {
       const container = document.getElementById("gridContainer");
       const sala = currentSala();
-      if (!sala) {
-        container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>";
-        return;
-      }
+      if (!sala) { container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>"; return; }
       container.style.gridTemplateColumns = `repeat(${sala.cols}, minmax(100px, 1fr))`;
       container.innerHTML = "";
       for (let r = 0; r < sala.rows; r++) {
         for (let c = 0; c < sala.cols; c++) {
-          criarCarteira(container, r, c, sala);
+          const key = `${r}-${c}`;
+          const studentName = sala.desks?.[key];
+          const desk = document.createElement("div");
+          desk.className = `desk${studentName ? " occupied" : ""}`;
+          desk.innerHTML = `<span class="pos">${r + 1}×${c + 1}</span><span>${studentName || "Livre"}</span>`;
+          desk.addEventListener("click", () => openAssignModal(key));
+          container.appendChild(desk);
         }
       }
-    }
-    function criarCarteira(container, row, col, sala) {
-      const key = `${row}-${col}`;
-      const studentName = sala.desks?.[key];
-      const desk = document.createElement("div");
-      desk.className = `desk${studentName ? " occupied" : ""}`;
-      const posSpan = document.createElement("span");
-      posSpan.className = "pos";
-      posSpan.textContent = `${row + 1}×${col + 1}`;
-      desk.appendChild(posSpan);
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = studentName || "Livre";
-      desk.appendChild(nameSpan);
-      desk.addEventListener("click", () => openAssignModal(key));
-      container.appendChild(desk);
     }
     function renderAll() {
       document.querySelectorAll(".turno-btn").forEach(btn => {
@@ -340,23 +264,17 @@
       renderGrid();
     }
 
-    // ==========================================
-    // 🪟 MODAIS E AÇÕES
-    // ==========================================
     function openOverlay(id) { document.getElementById(id).classList.add("active"); }
     function closeOverlay(id) { document.getElementById(id).classList.remove("active"); }
     function openAssignModal(key) {
       selectedDeskKey = key;
       const sala = currentSala();
       const currentStudent = sala.desks?.[key];
-      document.getElementById("assignTitle").textContent = 
-        `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
+      document.getElementById("assignTitle").textContent = `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
       const list = document.getElementById("assignList");
       list.innerHTML = "";
       const assignedStudents = Object.values(sala.desks || {});
-      const available = (sala.roster || []).filter(st => 
-        st === currentStudent || !assignedStudents.includes(st)
-      );
+      const available = (sala.roster || []).filter(st => st === currentStudent || !assignedStudents.includes(st));
       if (available.length === 0) {
         list.innerHTML = "<p class='empty-message'>Nenhum aluno disponível.</p>";
       } else {
@@ -375,8 +293,7 @@
           list.appendChild(btn);
         });
       }
-      document.getElementById("btnUnassign").style.display = 
-        currentStudent ? "inline-block" : "none";
+      document.getElementById("btnUnassign").style.display = currentStudent ? "inline-block" : "none";
       openOverlay("overlayAssign");
     }
     document.getElementById("btnUnassign").addEventListener("click", () => {
@@ -409,11 +326,7 @@
         delBtn.textContent = "Remover";
         delBtn.addEventListener("click", () => {
           sala.roster.splice(idx, 1);
-          if (sala.desks) {
-            Object.keys(sala.desks).forEach(k => {
-              if (sala.desks[k] === st) delete sala.desks[k];
-            });
-          }
+          if (sala.desks) Object.keys(sala.desks).forEach(k => { if (sala.desks[k] === st) delete sala.desks[k]; });
           saveState();
           renderStudentsList();
           renderGrid();
@@ -424,14 +337,13 @@
       });
     }
     document.getElementById("btnAddStudent").addEventListener("click", () => {
-      const inp = document.getElementById("newStudentInput");
-      const nome = inp.value.trim();
+      const nome = document.getElementById("newStudentInput").value.trim();
       if (!nome) return;
       const sala = currentSala();
       sala.roster = sala.roster || [];
       if (!sala.roster.includes(nome)) {
         sala.roster.push(nome);
-        inp.value = "";
+        document.getElementById("newStudentInput").value = "";
         saveState();
         renderStudentsList();
         renderGrid();
@@ -444,24 +356,13 @@
       const n = parseInt(val, 10);
       return isNaN(n) ? min : Math.max(min, Math.min(max, n));
     }
-    function updateConfigPreview() {
-      const rows = clampInt(document.getElementById("rowsInput").value, 1, 10);
-      const cols = clampInt(document.getElementById("colsInput").value, 1, 10);
-      document.getElementById("configTotal").textContent = 
-        `Total: ${rows * cols} carteiras`;
-    }
     document.getElementById("btnSaveConfig").addEventListener("click", () => {
       const sala = currentSala();
       const newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
       const newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
       sala.rows = newRows;
       sala.cols = newCols;
-      if (sala.desks) {
-        Object.keys(sala.desks).forEach(k => {
-          const [r, c] = k.split("-").map(Number);
-          if (r >= newRows || c >= newCols) delete sala.desks[k];
-        });
-      }
+      if (sala.desks) Object.keys(sala.desks).forEach(k => { const [r, c] = k.split("-").map(Number); if (r >= newRows || c >= newCols) delete sala.desks[k]; });
       saveState();
       renderGrid();
       closeOverlay("overlayConfig");
@@ -487,7 +388,7 @@
       const sala = currentSala();
       document.getElementById("rowsInput").value = sala.rows;
       document.getElementById("colsInput").value = sala.cols;
-      updateConfigPreview();
+      document.getElementById("configTotal").textContent = `Total: ${sala.rows * sala.cols} carteiras`;
       openOverlay("overlayConfig");
     });
     document.getElementById("btnLimpar").addEventListener("click", () => {
@@ -502,12 +403,7 @@
       btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
     });
 
-    // ==========================================
-    // 🚀 INICIAR APLICAÇÃO
-    // ==========================================
-    loadState().then(() => {
-      inscreverMudancas();
-    });
+    loadState().then(() => { inscreverMudancas(); });
   </script>
 </body>
 </html>
