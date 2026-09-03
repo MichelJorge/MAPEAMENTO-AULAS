@@ -120,17 +120,24 @@
   <div id="toast" class="toast">Ação concluída com sucesso!</div>
 
   <script>
-    const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
+    const SUPABASE_URL = "https://hlmpfretquznqhmecuhkm.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
 
-    let supabase;
+    let supabase = null;
+    let useFallbackMode = false;
+
     try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log("✅ Supabase inicializado");
+      if (window.supabase && window.supabase.createClient) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("✅ Supabase inicializado com sucesso!");
+      } else {
+        throw new Error("SDK do Supabase não carregado");
+      }
     } catch (e) {
       console.error("❌ Erro ao inicializar Supabase:", e);
-      updateStatus(false, "Falha na conexão");
+      useFallbackMode = true;
     }
+
     const ROW_ID = "mapa_global";
 
     function createInitialState() {
@@ -147,7 +154,6 @@
     }
     let state = createInitialState();
     let selectedDeskKey = null;
-    let useFallbackMode = false;
 
     function updateStatus(sincronizando, mensagem = null) {
       const el = document.getElementById("syncStatus");
@@ -162,6 +168,7 @@
         el.className = useFallbackMode ? "status-syncing" : "status-ok";
       }
     }
+
     function showToast(mensagem, isErro = false) {
       const toast = document.getElementById("toast");
       toast.textContent = mensagem;
@@ -169,6 +176,7 @@
       toast.style.display = "block";
       setTimeout(() => { toast.style.display = "none"; }, 3000);
     }
+
     function currentSala() {
       return state.turnos[state.current.turno][state.current.sala];
     }
@@ -176,6 +184,7 @@
     async function saveState() {
       localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
       if (useFallbackMode || !supabase) return;
+      
       updateStatus(true);
       try {
         const { error } = await supabase.from("mapa_salas").upsert({ id: ROW_ID, data: state, updated_at: new Date() });
@@ -186,16 +195,25 @@
         updateStatus(false);
       }
     }
+
     function ativarModoLocal() {
       if (!useFallbackMode) {
         useFallbackMode = true;
         showToast("⚠️ Usando modo local. Crie a tabela no Supabase!", true);
       }
     }
+
     async function loadState() {
       const backupLocal = localStorage.getItem("mapa_salas_backup");
-      if (backupLocal) try { state = JSON.parse(backupLocal); } catch (e) { state = createInitialState(); }
-      if (!supabase) { ativarModoLocal(); renderAll(); return; }
+      if (backupLocal) {
+        try { state = JSON.parse(backupLocal); } 
+        catch (e) { state = createInitialState(); }
+      }
+      if (!supabase) {
+        ativarModoLocal();
+        renderAll();
+        return;
+      }
       updateStatus(true, "Carregando...");
       try {
         const { data, error } = await supabase.from("mapa_salas").select("data").eq("id", ROW_ID).single();
@@ -213,17 +231,22 @@
         renderAll();
       }
     }
+
     function inscreverMudancas() {
       if (useFallbackMode || !supabase) return;
       try {
-        supabase.channel('mapa_mudancas').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` }, payload => {
-          if (payload.new?.data) {
-            state = payload.new.data;
-            localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
-            renderAll();
-            showToast("🔄 Atualizado da nuvem");
-          }
-        }).subscribe();
+        supabase.channel('mapa_mudancas')
+          .on('postgres_changes', { 
+            event: 'UPDATE', schema: 'public', table: 'mapa_salas', filter: `id=eq.${ROW_ID}` 
+          }, payload => {
+            if (payload.new?.data) {
+              state = payload.new.data;
+              localStorage.setItem("mapa_salas_backup", JSON.stringify(state));
+              renderAll();
+              showToast("🔄 Atualizado da nuvem");
+            }
+          })
+          .subscribe();
       } catch (e) {}
     }
 
@@ -238,10 +261,14 @@
         sel.appendChild(opt);
       }
     }
+
     function renderGrid() {
       const container = document.getElementById("gridContainer");
       const sala = currentSala();
-      if (!sala) { container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>"; return; }
+      if (!sala) {
+        container.innerHTML = "<p class='empty-message'>Erro ao carregar sala</p>";
+        return;
+      }
       container.style.gridTemplateColumns = `repeat(${sala.cols}, minmax(100px, 1fr))`;
       container.innerHTML = "";
       for (let r = 0; r < sala.rows; r++) {
@@ -256,6 +283,7 @@
         }
       }
     }
+
     function renderAll() {
       document.querySelectorAll(".turno-btn").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.turno === state.current.turno);
@@ -266,15 +294,19 @@
 
     function openOverlay(id) { document.getElementById(id).classList.add("active"); }
     function closeOverlay(id) { document.getElementById(id).classList.remove("active"); }
+
     function openAssignModal(key) {
       selectedDeskKey = key;
       const sala = currentSala();
       const currentStudent = sala.desks?.[key];
-      document.getElementById("assignTitle").textContent = `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
+      document.getElementById("assignTitle").textContent = 
+        `Carteira ${key.replace("-", "×")}${currentStudent ? ` — ${currentStudent}` : ""}`;
       const list = document.getElementById("assignList");
       list.innerHTML = "";
       const assignedStudents = Object.values(sala.desks || {});
-      const available = (sala.roster || []).filter(st => st === currentStudent || !assignedStudents.includes(st));
+      const available = (sala.roster || []).filter(st => 
+        st === currentStudent || !assignedStudents.includes(st)
+      );
       if (available.length === 0) {
         list.innerHTML = "<p class='empty-message'>Nenhum aluno disponível.</p>";
       } else {
@@ -296,6 +328,7 @@
       document.getElementById("btnUnassign").style.display = currentStudent ? "inline-block" : "none";
       openOverlay("overlayAssign");
     }
+
     document.getElementById("btnUnassign").addEventListener("click", () => {
       if (selectedDeskKey) {
         const sala = currentSala();
@@ -308,6 +341,7 @@
         }
       }
     });
+
     function renderStudentsList() {
       const list = document.getElementById("studentsList");
       const sala = currentSala();
@@ -326,7 +360,11 @@
         delBtn.textContent = "Remover";
         delBtn.addEventListener("click", () => {
           sala.roster.splice(idx, 1);
-          if (sala.desks) Object.keys(sala.desks).forEach(k => { if (sala.desks[k] === st) delete sala.desks[k]; });
+          if (sala.desks) {
+            Object.keys(sala.desks).forEach(k => {
+              if (sala.desks[k] === st) delete sala.desks[k];
+            });
+          }
           saveState();
           renderStudentsList();
           renderGrid();
@@ -336,6 +374,7 @@
         list.appendChild(item);
       });
     }
+
     document.getElementById("btnAddStudent").addEventListener("click", () => {
       const nome = document.getElementById("newStudentInput").value.trim();
       if (!nome) return;
@@ -352,27 +391,36 @@
         showToast("⚠️ Aluno já cadastrado!", true);
       }
     });
+
     function clampInt(val, min, max) {
       const n = parseInt(val, 10);
       return isNaN(n) ? min : Math.max(min, Math.min(max, n));
     }
+
     document.getElementById("btnSaveConfig").addEventListener("click", () => {
       const sala = currentSala();
       const newRows = clampInt(document.getElementById("rowsInput").value, 1, 10);
       const newCols = clampInt(document.getElementById("colsInput").value, 1, 10);
       sala.rows = newRows;
       sala.cols = newCols;
-      if (sala.desks) Object.keys(sala.desks).forEach(k => { const [r, c] = k.split("-").map(Number); if (r >= newRows || c >= newCols) delete sala.desks[k]; });
+      if (sala.desks) {
+        Object.keys(sala.desks).forEach(k => {
+          const [r, c] = k.split("-").map(Number);
+          if (r >= newRows || c >= newCols) delete sala.desks[k];
+        });
+      }
       saveState();
       renderGrid();
       closeOverlay("overlayConfig");
       showToast("✅ Grade atualizada");
     });
+
     document.getElementById("selectSala").addEventListener("change", e => {
       state.current.sala = parseInt(e.target.value, 10);
       saveState();
       renderGrid();
     });
+
     document.querySelectorAll(".turno-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         state.current.turno = btn.dataset.turno;
@@ -380,10 +428,12 @@
         renderAll();
       });
     });
+
     document.getElementById("btnAlunos").addEventListener("click", () => {
       renderStudentsList();
       openOverlay("overlayStudents");
     });
+
     document.getElementById("btnConfig").addEventListener("click", () => {
       const sala = currentSala();
       document.getElementById("rowsInput").value = sala.rows;
@@ -391,6 +441,7 @@
       document.getElementById("configTotal").textContent = `Total: ${sala.rows * sala.cols} carteiras`;
       openOverlay("overlayConfig");
     });
+
     document.getElementById("btnLimpar").addEventListener("click", () => {
       if (confirm("Esvaziar todas as carteiras desta sala?")) {
         currentSala().desks = {};
@@ -399,6 +450,7 @@
         showToast("✅ Carteiras liberadas");
       }
     });
+
     document.querySelectorAll("[data-close]").forEach(btn => {
       btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
     });
