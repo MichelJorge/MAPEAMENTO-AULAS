@@ -138,7 +138,7 @@
     // ==========================================
     // 1. CONFIGURAÇÃO DO SUPABASE
     // ==========================================
-    const SUPABASE_URL = "const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";";
+    const SUPABASE_URL = "https://hlmpfretquznqhmecuhk.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_Eql1y6_GrNkBeBN7tISuig_5H_t_BBY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -414,6 +414,9 @@
       var cols = clampInt(document.getElementById("colsInput").value, 1, 10);
       document.getElementById("configTotal").textContent = "Total: " + (rows * cols) + " carteiras";
     }
+
+    document.getElementById("rowsInput").addEventListener("input", updateConfigPreview);
+    document.getElementById("colsInput").addEventListener("input", updateConfigPreview);
 
     document.getElementById("btnSaveConfig").addEventListener("click", function() {
       var sala = currentSala();
